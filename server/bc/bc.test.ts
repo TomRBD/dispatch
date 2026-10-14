@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BcMapping } from './mapping';
 import { BC_MAPPING, missingRequired } from './mapping';
 import { extractToken, tokenExpiry } from './token';
-import { parisLocalToIso, readTime, transformBc } from './transform';
+import { parisLocalToIso, parseIsoDurationMin, readTime, transformBc } from './transform';
 
 describe('parisLocalToIso', () => {
   it('handles summer and winter time', () => {
@@ -71,7 +71,49 @@ describe('transformBc', () => {
   });
 
   it('requires the mandatory fields before serving data', () => {
-    expect(missingRequired(BC_MAPPING)).toEqual(['tournee.id', 'tournee.date', 'mission.id', 'mission.tourneeId']);
-    expect(missingRequired(mapping)).toEqual([]);
+    const empty = { ...mapping, tournee: { ...mapping.tournee, id: null }, mission: { ...mapping.mission, tourneeId: null } };
+    expect(missingRequired(empty)).toEqual(['tournee.id', 'mission.tourneeId']);
+    expect(missingRequired(BC_MAPPING)).toEqual([]);
+  });
+});
+
+describe('SUNDGAU COMPOST mapping', () => {
+  const tour = {
+    No: 'TOU-001', Description: 'Livraison bois', Tour_Date: '2026-10-14', Vehicle_No: 'GE-376-AX',
+    Status: 'Finished', Planned_Starting_Time: '08:00:00', Planned_Duration: 'P0DT1H30M0.0S',
+    Starting_Mileage: 120_400, Ending_Mileage: 120_486,
+  };
+  const mission = {
+    No: 'MIS-001', Tour_No: 'TOU-001', Tour_Date: '2026-10-14', Rank: 1, Destination_Name: 'Client X',
+    Destination_City: 'ALTKIRCH', Destination_Latitude: 47.62, Destination_Longitude: 7.24,
+    Requested_Date: '2026-10-14', Requested_Time: '10:00:00',
+  };
+
+  it('parses BC durations', () => {
+    expect(parseIsoDurationMin('P0DT1H30M0.0S')).toBe(90);
+    expect(parseIsoDurationMin('P0DT0H0M0.0S')).toBe(0);
+    expect(parseIsoDurationMin('n/a')).toBeUndefined();
+  });
+
+  it('maps a tournée and its missions', () => {
+    const [t] = transformBc([tour], [mission], BC_MAPPING).missions;
+    expect(t).toMatchObject({
+      id: 'TOU-001', label: 'Livraison bois', vehicleId: 'GE-376-AX', status: 'completed',
+      plannedStart: '2026-10-14T06:00:00.000Z', plannedEnd: '2026-10-14T07:30:00.000Z', actualDistanceKm: 86,
+    });
+    expect(t!.plannedDistanceKm).toBeUndefined();
+    expect(t!.deliveries[0]).toMatchObject({
+      id: 'MIS-001', sequence: 1, customerName: 'Client X', siteName: 'ALTKIRCH', status: 'unknown',
+      location: { lat: 47.62, lng: 7.24 }, plannedWindowEnd: '2026-10-14T08:00:00.000Z',
+    });
+  });
+
+  it('leaves end and distance empty when BC values are blank or inconsistent', () => {
+    const [t] = transformBc(
+      [{ ...tour, Status: 'Planned', Planned_Duration: 'P0DT0H0M0.0S', Ending_Mileage: 0 }], [], BC_MAPPING,
+    ).missions;
+    expect(t).toMatchObject({ status: 'unknown' });
+    expect(t!.plannedEnd).toBeUndefined();
+    expect(t!.actualDistanceKm).toBeUndefined();
   });
 });

@@ -72,6 +72,27 @@ export function readTime(row: Row, field: TimeField): string | undefined {
   return parisLocalToIso(date, time);
 }
 
+/** Durée ISO 8601 de BC (« P0DT1H30M0.0S ») → minutes. */
+export function parseIsoDurationMin(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const m = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:([\d.]+)S)?)?$/.exec(value);
+  if (!m) return undefined;
+  const [, d = '0', h = '0', min = '0', sec = '0'] = m;
+  return Number(d) * 1440 + Number(h) * 60 + Number(min) + Math.round(Number(sec) / 60);
+}
+
+/** Fin prévue = début + durée prévue (durée nulle = non renseignée). */
+function plannedEndFrom(start: string | undefined, durationMin: number | undefined): string | undefined {
+  if (!start || !durationMin) return undefined;
+  return new Date(new Date(start).getTime() + durationMin * 60_000).toISOString();
+}
+
+/** Distance parcourue = compteur fin − compteur début, si les deux sont cohérents. */
+function mileageDistance(start: number | undefined, end: number | undefined): number | undefined {
+  if (start === undefined || end === undefined || start <= 0 || end <= 0 || end < start) return undefined;
+  return end - start;
+}
+
 export interface ContractDelivery {
   id: string;
   reference: string;
@@ -120,18 +141,23 @@ export function transformBc(tournees: Row[], missions: Row[], m: BcMapping): Tra
       continue;
     }
     const rawStatus = text(row, m.tournee.status);
+    const plannedStart = readTime(row, m.tournee.plannedStart);
     byId.set(id, {
       id,
       reference: text(row, m.tournee.reference) ?? id,
       label: text(row, m.tournee.label),
       vehicleId: text(row, m.tournee.vehicle),
       status: (rawStatus && m.tourneeStatus[rawStatus]) || 'unknown',
-      plannedStart: readTime(row, m.tournee.plannedStart),
-      plannedEnd: readTime(row, m.tournee.plannedEnd),
+      plannedStart,
+      plannedEnd:
+        readTime(row, m.tournee.plannedEnd) ??
+        plannedEndFrom(plannedStart, parseIsoDurationMin(text(row, m.tournee.plannedDuration))),
       actualStart: readTime(row, m.tournee.actualStart),
       actualEnd: readTime(row, m.tournee.actualEnd),
       plannedDistanceKm: number(row, m.tournee.plannedDistanceKm),
-      actualDistanceKm: number(row, m.tournee.actualDistanceKm),
+      actualDistanceKm:
+        number(row, m.tournee.actualDistanceKm) ??
+        mileageDistance(number(row, m.tournee.startMileage), number(row, m.tournee.endMileage)),
       deliveries: [],
     });
   }

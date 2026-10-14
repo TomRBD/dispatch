@@ -122,7 +122,7 @@ export function DistancePanel({
                           {m.label ?? m.reference}
                         </button>
                       </th>
-                      <td>{v?.registration ?? <span className="missing">—</span>}</td>
+                      <td>{v?.registration ?? m.vehicleId ?? <span className="missing">—</span>}</td>
                       <td>
                         <StatusBadge meta={MISSION_STATUS[m.status]} />
                       </td>

@@ -73,11 +73,16 @@ export function KpiStrip({ kpis, missions, onShowLate, onShowAction, actionCount
       />
       <Tile
         label="Livraisons terminées"
-        value={ordersAvailable ? `${d.delivered} / ${d.total}` : UNAVAILABLE}
+        value={
+          !ordersAvailable || (d.total > 0 && d.unknownStatus === d.total) ? UNAVAILABLE : `${d.delivered} / ${d.total}`
+        }
         detail={
-          !ordersAvailable ? noOrders : <>
+          !ordersAvailable ? noOrders : d.total > 0 && d.unknownStatus === d.total ? (
+            `Statut des ${d.total} livraison(s) non fourni par la source`
+          ) : <>
             {d.inProgress} en cours · {d.planned} à livrer
             {d.failed > 0 && <> · {d.failed} non livrée(s)</>}
+            {d.unknownStatus > 0 && <> · {d.unknownStatus} sans statut</>}
           </>
         }
       />
@@ -87,7 +92,7 @@ export function KpiStrip({ kpis, missions, onShowLate, onShowAction, actionCount
         detail={
           !ordersAvailable ? noOrders : <>
             {kpis.lateMissions} mission(s) concernée(s)
-            {d.lateUnknown > 0 && <> · {d.lateUnknown} sans créneau évaluable</>}
+            {d.lateUnknown > 0 && <> · {d.lateUnknown} non évaluable(s)</>}
           </>
         }
         tone={!ordersAvailable ? undefined : d.late > 0 ? 'danger' : 'ok'}

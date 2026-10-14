@@ -118,6 +118,8 @@ export interface OpsEvent {
   actualAt?: Date;
   /** Vrai si l'événement est attendu mais n'a pas encore eu lieu. */
   pending: boolean;
+  /** Vrai si la source ne permet pas de savoir si l'événement a eu lieu (statut inconnu). */
+  uncertain?: boolean;
 }
 
 /** Instantané complet de l'exploitation, tel que chargé par le dépôt. */

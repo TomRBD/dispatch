@@ -25,10 +25,15 @@ export interface TourneeMapping {
   status: string | null;
   plannedStart: TimeField;
   plannedEnd: TimeField;
+  /** Durée prévue (ISO 8601, ex. P0DT1H30M0.0S) : fin prévue = début prévu + durée, si pas de fin explicite. */
+  plannedDuration: string | null;
   actualStart: TimeField;
   actualEnd: TimeField;
   plannedDistanceKm: string | null;
   actualDistanceKm: string | null;
+  /** Compteurs kilométriques : distance parcourue = fin − début, si pas de distance explicite. */
+  startMileage: string | null;
+  endMileage: string | null;
 }
 
 export interface MissionMapping {
@@ -61,40 +66,52 @@ export interface BcMapping {
   missionStatus: Record<string, 'planned' | 'in_progress' | 'delivered' | 'failed' | 'cancelled'>;
 }
 
+/**
+ * Correspondance relevée sur SUNDGAU COMPOST (npm run bc:inspect).
+ * Tournee_Excel → missions/tournées de l'application ; Mission_Excel → livraisons.
+ */
 export const BC_MAPPING: BcMapping = {
   tournee: {
-    id: null,
-    date: null,
-    reference: null,
-    label: null,
-    vehicle: null,
-    status: null,
-    plannedStart: null,
+    id: 'No',
+    date: 'Tour_Date',
+    reference: 'No',
+    label: 'Description',
+    vehicle: 'Vehicle_No',
+    status: 'Status',
+    plannedStart: { date: 'Tour_Date', time: 'Planned_Starting_Time' },
     plannedEnd: null,
+    plannedDuration: 'Planned_Duration',
+    // Aucune heure réelle de départ / fin dans Tournee_Excel (seulement Real_Duration).
     actualStart: null,
     actualEnd: null,
+    // Pas de distance prévue dans BC.
     plannedDistanceKm: null,
     actualDistanceKm: null,
+    startMileage: 'Starting_Mileage',
+    endMileage: 'Ending_Mileage',
   },
   mission: {
-    id: null,
-    tourneeId: null,
-    date: null,
-    reference: null,
+    id: 'No',
+    tourneeId: 'Tour_No',
+    date: 'Tour_Date',
+    reference: 'No',
     orderReference: null,
-    sequence: null,
-    customer: null,
-    site: null,
+    sequence: 'Rank',
+    customer: 'Destination_Name',
+    site: 'Destination_City',
+    // Mission_Excel n'a pas de champ statut : statut « inconnu » tant qu'aucune règle n'est validée.
     status: null,
-    latitude: null,
-    longitude: null,
+    latitude: 'Destination_Latitude',
+    longitude: 'Destination_Longitude',
+    // Heure demandée par le client, utilisée comme fin de créneau pour la règle de retard.
     windowStart: null,
-    windowEnd: null,
+    windowEnd: { date: 'Requested_Date', time: 'Requested_Time' },
     estimatedArrival: null,
     actualArrival: null,
     actualCompletion: null,
   },
-  tourneeStatus: {},
+  // Seule valeur observée à ce jour ; les autres valeurs restent « inconnu » jusqu'à confirmation.
+  tourneeStatus: { Finished: 'completed' },
   missionStatus: {},
 };
 

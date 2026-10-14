@@ -10,6 +10,7 @@
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ROOT_DIR, bcConfigured, serverConfig } from '../config';
+import { BC_MAPPING } from './mapping';
 import { fetchEntity } from './odata';
 
 const SAMPLE = 200;
@@ -53,11 +54,21 @@ async function main() {
     console.error('BC_TENANT_ID et BC_COMPANY doivent être renseignés dans server/.env');
     process.exit(1);
   }
+  // `npm run bc:inspect -- 2026-10-14` : échantillon limité à une journée.
+  const day = process.argv[2];
+  if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    console.error('Date attendue au format AAAA-MM-JJ');
+    process.exit(1);
+  }
   const { tourneeEntity, missionEntity } = serverConfig.bc;
-  const out: string[] = [];
-  for (const entity of [tourneeEntity, missionEntity]) {
+  const out: string[] = day ? [`Journée : ${day}`] : [];
+  for (const [entity, dateField] of [
+    [tourneeEntity, BC_MAPPING.tournee.date],
+    [missionEntity, BC_MAPPING.mission.date],
+  ] as const) {
     try {
-      out.push(describe(entity, await fetchEntity(entity, { top: SAMPLE })));
+      const filter = day && dateField ? `${dateField} eq ${day}` : undefined;
+      out.push(describe(entity, await fetchEntity(entity, { top: SAMPLE, filter })));
     } catch (e) {
       out.push(`=== ${entity} — ERREUR : ${(e as Error).message}`);
     }

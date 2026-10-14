@@ -91,18 +91,28 @@ function MissionSummary({ mission, vehicle, now }: { mission: Mission; vehicle?:
         </span>
       </Field>
       <Field label="Véhicule">
-        {vehicle ? vehicle.registration : mission.vehicleId ? `${mission.vehicleId} (inconnu)` : <Missing>Non affecté</Missing>}
+        {vehicle ? vehicle.registration : mission.vehicleId ? `${mission.vehicleId} (sans données télématiques)` : <Missing>Non affecté</Missing>}
       </Field>
       <Field label="Progression">
-        <span className="progress" role="img" aria-label={`${p.done} livraisons terminées sur ${p.total}`}>
-          <span className="progress__bar">
-            <span style={{ width: p.total ? `${(p.done / p.total) * 100}%` : 0 }} />
+        {p.total > 0 && p.unknown === p.total ? (
+          <Missing>{p.total} livraison(s), statut non fourni par la source</Missing>
+        ) : (
+          <span className="progress" role="img" aria-label={`${p.done} livraisons terminées sur ${p.total}`}>
+            <span className="progress__bar">
+              <span style={{ width: p.total ? `${(p.done / p.total) * 100}%` : 0 }} />
+            </span>
+            {p.done} / {p.total}
           </span>
-          {p.done} / {p.total}
-        </span>
+        )}
       </Field>
       <Field label="Prochain arrêt">
-        {next ? `${next.siteName ?? next.customerName}` : <Missing>Aucun arrêt restant</Missing>}
+        {next ? (
+          `${next.siteName ?? next.customerName}`
+        ) : p.unknown > 0 ? (
+          <Missing>Non déterminable (statuts absents)</Missing>
+        ) : (
+          <Missing>Aucun arrêt restant</Missing>
+        )}
       </Field>
       <Field label="Horaires prévus">
         {mission.plannedStart || mission.plannedEnd ? (

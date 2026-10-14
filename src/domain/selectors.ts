@@ -11,7 +11,7 @@ export interface VehicleView {
   lateness: Lateness;
   freshness: PositionFreshness;
   nextDelivery?: Delivery;
-  progress?: { done: number; total: number };
+  progress?: { done: number; total: number; unknown: number };
   needsAction: boolean;
 }
 
@@ -32,11 +32,12 @@ export function pickMission(missions: Mission[]): Pick<VehicleView, 'mission' | 
 
 const FINAL: Delivery['status'][] = ['delivered', 'failed', 'cancelled'];
 
-export function missionProgress(m: Mission): { done: number; total: number } {
+export function missionProgress(m: Mission): { done: number; total: number; unknown: number } {
   const relevant = m.deliveries.filter((d) => d.status !== 'cancelled');
   return {
     done: relevant.filter((d) => FINAL.includes(d.status)).length,
     total: relevant.length,
+    unknown: relevant.filter((d) => d.status === 'unknown').length,
   };
 }
 
@@ -74,7 +75,7 @@ export interface DayKpis {
   vehiclesDriving: number;
   vehiclesWithMission: number;
   missions: { total: number; planned: number; inProgress: number; completed: number; unassigned: number };
-  deliveries: { total: number; delivered: number; inProgress: number; planned: number; failed: number; late: number; lateUnknown: number };
+  deliveries: { total: number; delivered: number; inProgress: number; planned: number; failed: number; unknownStatus: number; late: number; lateUnknown: number };
   lateMissions: number;
   positionsStale: number;
   positionsUnavailable: number;
@@ -100,6 +101,7 @@ export function computeKpis(s: DispatchSnapshot, views: VehicleView[], now: Date
       inProgress: deliveries.filter((d) => d.status === 'in_progress').length,
       planned: deliveries.filter((d) => d.status === 'planned').length,
       failed: deliveries.filter((d) => d.status === 'failed').length,
+      unknownStatus: deliveries.filter((d) => d.status === 'unknown').length,
       // Retards encore actionnables : livraisons non terminées.
       late: deliveries.filter((d, i) => isLate(lates[i]!) && !FINAL.includes(d.status)).length,
       lateUnknown: lates.filter((l) => l.kind === 'unknown').length,

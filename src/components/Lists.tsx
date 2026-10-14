@@ -129,14 +129,16 @@ export function MissionList({
                   {vehicle ? (
                     vehicle.registration
                   ) : m.vehicleId ? (
-                    `Véhicule ${m.vehicleId} (inconnu de la télématique)`
+                    `${m.vehicleId} (sans données télématiques)`
                   ) : (
                     <span className="text-warn">
                       <span aria-hidden="true">⚠ </span>Non affectée à un véhicule
                     </span>
                   )}
                   {' · '}
-                  {p.done}/{p.total} livraison(s)
+                  {p.unknown === p.total && p.total > 0
+                    ? `${p.total} livraison(s)`
+                    : `${p.done}/${p.total} livraison(s)`}
                 </span>
                 <span className="row__meta">
                   <Icon name="clock" size={12} />{' '}

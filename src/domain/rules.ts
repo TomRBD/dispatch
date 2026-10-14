@@ -24,7 +24,7 @@ export const RULES = {
 } as const;
 
 export const RULE_DESCRIPTIONS = {
-  late: `Une livraison est en retard lorsque son arrivée (réelle, ou estimée par la source) dépasse la fin du créneau prévu de plus de ${RULES.lateToleranceMin} min, ou lorsque ce délai est dépassé sans livraison enregistrée. Sans fin de créneau prévue, le retard est indéterminé.`,
+  late: `Une livraison est en retard lorsque son arrivée (réelle, ou estimée par la source) dépasse la fin du créneau prévu de plus de ${RULES.lateToleranceMin} min, ou lorsque ce délai est dépassé sans livraison enregistrée. Sans fin de créneau prévue, ou sans statut de livraison, le retard est indéterminé.`,
   stale: `Une position est considérée comme ancienne au-delà de ${RULES.stalePositionMin} min sans nouvelle mesure.`,
   distance: `L'écart compare la distance parcourue (télématique) à la distance prévue (planning) pour les missions où les deux valeurs existent. Un écart supérieur à ${Math.round(RULES.distanceAnomalyRatio * 100)} % est signalé. Pour une mission en cours, la distance parcourue est partielle et l'écart n'est pas calculé.`,
 } as const;
@@ -47,6 +47,11 @@ export function deliveryLateness(delivery: Delivery, now: Date): Lateness {
     return minutes > threshold
       ? { kind: 'late', minutes, since: deadline, basis: 'actual' }
       : { kind: 'on_time' };
+  }
+
+  if (delivery.status === 'unknown') {
+    // Sans statut ni heure réelle, impossible de savoir si la livraison a eu lieu.
+    return { kind: 'unknown', reason: 'Statut de livraison non fourni par la source' };
   }
 
   if (delivery.status === 'delivered' || delivery.status === 'failed') {

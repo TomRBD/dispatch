@@ -76,9 +76,29 @@ npm run bc:inspect
 
 Affiche, pour chaque entité, le nom et le type des champs, leur taux de remplissage et les valeurs des champs à faible nombre de valeurs (statuts). Aucune ligne complète ni le token ne sont affichés. Le résultat est aussi écrit dans `bc-inspect.txt`.
 
-### 3. Compléter la correspondance
+Option : `npm run bc:inspect -- 2026-10-14` limite l'échantillon à une journée (utile pour voir les statuts des tournées en cours).
 
-Renseignez `server/bc/mapping.ts` (nom de chaque champ BC, valeurs de statut). Tant que les champs obligatoires (`tournee.id`, `tournee.date`, `mission.id`, `mission.tourneeId`) sont vides, la passerelle répond « correspondance à configurer » plutôt que de deviner.
+### 3. Correspondance des champs (`server/bc/mapping.ts`)
+
+Déjà renseignée pour SUNDGAU COMPOST :
+
+| Application | Business Central |
+| --- | --- |
+| Mission / tournée | `Tournee_Excel` : `No`, `Description`, `Tour_Date`, `Vehicle_No`, `Status` |
+| Début prévu | `Tour_Date` + `Planned_Starting_Time` (heure de Paris) |
+| Fin prévue | début prévu + `Planned_Duration` (si durée non nulle) |
+| Distance parcourue | `Ending_Mileage − Starting_Mileage` (si les deux compteurs sont cohérents) |
+| Livraison | `Mission_Excel` : `No`, rattachée par `Tour_No`, ordre `Rank` |
+| Client, lieu | `Destination_Name`, `Destination_City`, `Destination_Latitude/Longitude` |
+| Fin de créneau (règle de retard) | `Requested_Date` + `Requested_Time` |
+
+Limites des données BC actuelles :
+
+- **Statut de tournée** : seule la valeur `Finished` a été observée (→ Terminée). Les autres valeurs s'affichent « Statut inconnu » jusqu'à ce qu'elles soient ajoutées dans `tourneeStatus`.
+- **Statut de livraison** : `Mission_Excel` n'a pas de champ statut. Les livraisons sont « sans statut » ; leur retard est « indéterminé » (aucun retard n'est supposé).
+- **Pas d'heures réelles** (départ, arrivée, livraison) ni de **distance prévue** : la timeline les signale comme manquantes et l'écart de distance n'est pas calculé.
+
+Tant que les champs obligatoires (`tournee.id`, `tournee.date`, `mission.id`, `mission.tourneeId`) sont vides, la passerelle répond « correspondance à configurer » plutôt que de deviner.
 
 ### 4. Lancer
 
@@ -162,7 +182,7 @@ Leaflet affiche par défaut les tuiles OpenStreetMap (`VITE_MAP_TILE_URL`). Si l
 
 ## Limites connues
 
-- Business Central : passerelle prête, correspondance des champs (`server/bc/mapping.ts`) à compléter après `npm run bc:inspect`.
+- Business Central : branché sur `Tournee_Excel` / `Mission_Excel` ; statuts de livraison, heures réelles et distance prévue absents de ces entités (voir plus haut).
 - Webfleet : non branché.
 - Les règles métier ci-dessus sont des propositions à valider.
 - L'affichage des noms de conducteurs dépend uniquement de leur présence dans les données : le filtrage RGPD doit être fait par la passerelle.

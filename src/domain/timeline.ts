@@ -36,7 +36,8 @@ export function buildMissionTimeline(mission: Mission, now: Date): OpsEvent[] {
       deliveryId: d.id,
       plannedAt: d.plannedWindowStart,
       actualAt: d.actualArrival,
-      pending: !d.actualArrival && d.status !== 'cancelled' && d.status !== 'delivered',
+      pending: !d.actualArrival && (d.status === 'planned' || d.status === 'in_progress'),
+      uncertain: !d.actualArrival && d.status === 'unknown',
     });
 
     if (lateness.kind === 'late') {
@@ -65,6 +66,7 @@ export function buildMissionTimeline(mission: Mission, now: Date): OpsEvent[] {
       plannedAt: d.plannedWindowEnd,
       actualAt: d.actualCompletion,
       pending: d.status === 'planned' || d.status === 'in_progress',
+      uncertain: !d.actualCompletion && d.status === 'unknown',
     });
   }
 
@@ -83,5 +85,5 @@ export function buildMissionTimeline(mission: Mission, now: Date): OpsEvent[] {
 
 /** Nombre d'événements réalisés sans horodatage réel. */
 export function countMissingTimestamps(events: OpsEvent[]): number {
-  return events.filter((e) => !e.pending && !e.actualAt).length;
+  return events.filter((e) => !e.pending && !e.uncertain && !e.actualAt).length;
 }

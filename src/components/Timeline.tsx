@@ -10,9 +10,10 @@ const TYPE_GLYPH: Record<OpsEvent['type'], string> = {
   mission_end: '⚑',
 };
 
-function eventState(e: OpsEvent): 'done' | 'pending' | 'delay' | 'missing' {
+function eventState(e: OpsEvent): 'done' | 'pending' | 'delay' | 'missing' | 'uncertain' {
   if (e.type === 'delay') return 'delay';
   if (e.pending) return 'pending';
+  if (e.uncertain) return 'uncertain';
   return e.actualAt ? 'done' : 'missing';
 }
 
@@ -61,6 +62,7 @@ export function Timeline({ mission, now }: { mission: Mission; now: Date }) {
                   )}
                   {state === 'pending' && <span className="tl__tag">À venir</span>}
                   {state === 'missing' && <span className="tl__tag tl__tag--warn">Horodatage manquant</span>}
+                  {state === 'uncertain' && <span className="tl__tag">Réalisation non confirmée par la source</span>}
                   {!e.actualAt && !e.plannedAt && state === 'pending' && (
                     <span className="tl__planned">Aucun horaire prévu</span>
                   )}

@@ -34,6 +34,9 @@ export function bcConfigured(): boolean {
 
 /** URL racine OData V4 de la société. */
 export function bcODataBase(): string {
+  // Surcharge réservée aux tests (faux serveur OData).
+  const override = env('BC_ODATA_BASE_URL');
+  if (override) return override.replace(/\/+$/, '');
   const { tenantId, environment, company } = serverConfig.bc;
   const companyLiteral = company.replace(/'/g, "''");
   return `https://api.businesscentral.dynamics.com/v2.0/${encodeURIComponent(tenantId)}/${encodeURIComponent(

@@ -63,6 +63,13 @@ describe('deliveryLateness', () => {
     expect(deliveryLateness(d, now).kind).toBe('unknown');
   });
 
+  it('does not assume a delay when the delivery status is unknown', () => {
+    const d = delivery({ status: 'unknown', plannedWindowEnd: at(-120) });
+    expect(deliveryLateness(d, now).kind).toBe('unknown');
+    const withActual = delivery({ status: 'unknown', plannedWindowEnd: at(-120), actualArrival: at(-60) });
+    expect(deliveryLateness(withActual, now).kind).toBe('late');
+  });
+
   it('ignores cancelled deliveries', () => {
     expect(deliveryLateness(delivery({ status: 'cancelled', plannedWindowEnd: at(-90) }), now).kind).toBe(
       'not_applicable',

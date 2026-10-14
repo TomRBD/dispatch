@@ -301,6 +301,8 @@ h1, h2, h3 { margin: 0; }
 .tl--pending .tl__dot { background: #fff; border-color: var(--line-strong); border-style: dashed; color: var(--ink-3); }
 .tl--missing .tl__dot { background: #fff; border-color: #d08a12; color: var(--warn); }
 .tl--delay .tl__dot { background: var(--danger); border-color: var(--danger); color: #fff; }
+.tl--uncertain .tl__dot { background: #fff; border-color: var(--muted); border-style: dotted; color: var(--muted); }
+.tl--uncertain .tl__label { color: var(--ink-2); font-weight: 500; }
 .tl__body { padding-top: 2px; }
 .tl__label { font-weight: 600; }
 .tl--pending .tl__label { color: var(--ink-2); font-weight: 500; }
