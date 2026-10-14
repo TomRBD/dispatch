@@ -16,10 +16,11 @@ export class WebfleetError extends Error {
 
 export async function fetchObjectReport(): Promise<Record<string, unknown>[]> {
   const w = serverConfig.webfleet;
+  // Identifiant et mot de passe en HTTP Basic (erreur 1180 s'ils sont dans l'URL) ;
+  // le compte et la clé API restent des paramètres de la requête.
+  const basic = Buffer.from(`${w.username}:${w.password}`, 'utf8').toString('base64');
   const params = new URLSearchParams({
     account: w.account,
-    username: w.username,
-    password: w.password,
     apikey: w.apiKey,
     lang: 'fr',
     action: 'showObjectReportExtern',
@@ -29,7 +30,7 @@ export async function fetchObjectReport(): Promise<Record<string, unknown>[]> {
   let res: Response;
   try {
     res = await fetch(`${w.baseUrl}/extern?${params}`, {
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', Authorization: `Basic ${basic}` },
       signal: AbortSignal.timeout(30_000),
     });
   } catch {
@@ -45,7 +46,7 @@ export async function fetchObjectReport(): Promise<Record<string, unknown>[]> {
   const code = Number(err.errorCode);
   if (Number.isFinite(code)) {
     const msg = typeof err.errorMsg === 'string' ? err.errorMsg : '';
-    const auth = /auth|password|passwor|apikey|api key|account|user|login|permission|right/i.test(msg);
+    const auth = /auth|credential|password|apikey|api key|account|user|login|permission|right/i.test(msg);
     throw new WebfleetError(`Webfleet erreur ${code}${msg ? ` : ${msg}` : ''}`, auth ? 'auth' : 'upstream');
   }
   throw new WebfleetError('Réponse Webfleet inattendue', 'upstream');
