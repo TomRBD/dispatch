@@ -8,29 +8,59 @@ import { formatAge, formatTime } from '../domain/time';
 import { formatKm } from './format';
 import { DistanceCell } from './DistancePanel';
 import { Icon } from './Icon';
+import { missionIcon } from './Lists';
+import { Plate } from './Plate';
 import { StatusBadge } from './StatusBadge';
 import { Timeline } from './Timeline';
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+/** Petite carte chiffrée de la fiche (horaires, progression, km…). */
+function Stat({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
   return (
-    <div className="field">
-      <dt>{label}</dt>
-      <dd>{children}</dd>
+    <div className={`stat ${wide ? 'stat--wide' : ''}`}>
+      <dt className="stat__label">{label}</dt>
+      <dd className="stat__value">{children}</dd>
     </div>
   );
 }
 
-const Missing = ({ children = 'Non disponible' }: { children?: ReactNode }) => (
-  <span className="missing">{children}</span>
-);
+function SheetHead({ kicker, icon, title, children, onClose, closeLabel }: {
+  kicker: string;
+  icon: ReactNode;
+  title: ReactNode;
+  children?: ReactNode;
+  onClose: () => void;
+  closeLabel: string;
+}) {
+  return (
+    <header className="sheet__head">
+      <div className="sheet__head-main">
+        <p className="sheet__kicker">
+          {icon}
+          {kicker}
+        </p>
+        <h2 id="sheet-title" className="sheet__title">
+          {title}
+        </h2>
+        {children}
+      </div>
+      <button type="button" className="btn btn--icon" onClick={onClose} aria-label={closeLabel}>
+        <Icon name="close" />
+      </button>
+    </header>
+  );
+}
 
 function DeliveryList({ mission, now }: { mission: Mission; now: Date }) {
-  if (mission.deliveries.length === 0) return <p className="empty">Aucune livraison rattachée à cette mission.</p>;
+  if (mission.deliveries.length === 0) {
+    return <p className="empty-inline">Aucun arrêt rattaché à cette tournée.</p>;
+  }
   const sorted = [...mission.deliveries].sort((a, b) => (a.sequence ?? Infinity) - (b.sequence ?? Infinity));
   return (
-    <section>
-      <h3 className="section-title">Arrêts (livraisons / collectes)</h3>
-      <ol className="deliveries">
+    <section aria-labelledby="stops-title">
+      <h3 id="stops-title" className="section-title">
+        Arrêts <span className="section-title__count">{sorted.length}</span>
+      </h3>
+      <ol className="stops">
         {sorted.map((d) => (
           <DeliveryItem key={d.id} d={d} now={now} />
         ))}
@@ -41,107 +71,94 @@ function DeliveryList({ mission, now }: { mission: Mission; now: Date }) {
 
 function DeliveryItem({ d, now }: { d: Delivery; now: Date }) {
   const lateness = deliveryLateness(d, now);
-  const late = lateness.kind === 'unknown' ? null : latenessMeta(lateness);
+  const late = lateness.kind === 'late' ? latenessMeta(lateness) : null;
+  const status = DELIVERY_STATUS[d.status];
+  const kindLabel = d.kind === 'pickup' ? 'Collecte' : d.kind === 'delivery' ? 'Livraison' : 'Arrêt';
   return (
-    <li className="delivery">
-      <div className="delivery__head">
-        <span className="delivery__seq" aria-hidden="true">
-          {d.sequence ?? '·'}
-        </span>
-        <div>
-          <p className="delivery__customer">{d.customerName}</p>
-          <p className="delivery__ref">
-            {d.reference}
-            {d.orderReference && <> · Cde {d.orderReference}</>}
-            {d.siteName && <> · {d.siteName}</>}
+    <li className={`stop stop--${status.tone}`}>
+      <span className="stop__seq" aria-hidden="true">
+        {d.sequence ?? '·'}
+      </span>
+      <div className="stop__body">
+        <p className="stop__name">{d.customerName}</p>
+        <p className="stop__meta">
+          <Icon name={d.kind === 'pickup' ? 'bin' : d.kind === 'delivery' ? 'box' : 'pin'} size={12} />
+          {kindLabel}
+          {d.siteName && <> · {d.siteName}</>}
+          <span className="stop__ref"> · {d.reference}</span>
+        </p>
+        {(d.actualArrival || d.actualCompletion || d.plannedWindowEnd) && (
+          <p className="stop__times">
+            {d.plannedWindowEnd && <span>Demandé {formatTime(d.plannedWindowEnd, now)}</span>}
+            {d.actualArrival && (
+              <span>
+                <Icon name="clock" size={11} /> {formatTime(d.actualArrival, now)}
+                {d.actualCompletion && <> → {formatTime(d.actualCompletion, now)}</>}
+              </span>
+            )}
           </p>
-        </div>
+        )}
       </div>
-      <div className="delivery__status">
-        {d.kind && <span className="tag">{d.kind === 'pickup' ? 'Collecte' : 'Livraison'}</span>}
-        <StatusBadge meta={DELIVERY_STATUS[d.status]} srPrefix={d.kind === 'pickup' ? 'Collecte' : 'Livraison'} />
+      <div className="stop__status">
+        <StatusBadge meta={status} srPrefix={kindLabel} />
         {d.emptyRun && (
-          <StatusBadge
-            meta={{ label: `Passage à vide${d.emptyRunReason ? ` : ${d.emptyRunReason}` : ''}`, tone: 'warn', glyph: '∅' }}
-          />
+          <StatusBadge meta={{ label: `À vide${d.emptyRunReason ? ` · ${d.emptyRunReason}` : ''}`, tone: 'warn', glyph: '∅' }} />
         )}
         {late && <StatusBadge meta={late} />}
       </div>
-      <p className="delivery__times">
-        Créneau{' '}
-        {d.plannedWindowStart || d.plannedWindowEnd ? (
-          <>
-            {d.plannedWindowStart ? formatTime(d.plannedWindowStart, now) : '?'} –{' '}
-            {d.plannedWindowEnd ? formatTime(d.plannedWindowEnd, now) : '?'}
-          </>
-        ) : (
-          <Missing>non renseigné</Missing>
-        )}
-        {d.actualArrival && <> · Arrivée {formatTime(d.actualArrival, now)}</>}
-        {d.actualCompletion && <> · Fin {formatTime(d.actualCompletion, now)}</>}
-        {!d.actualArrival && d.estimatedArrival && <> · ETA source {formatTime(d.estimatedArrival, now)}</>}
-      </p>
     </li>
   );
 }
 
-function MissionSummary({ mission, vehicle, now }: { mission: Mission; vehicle?: Vehicle; now: Date }) {
+function MissionStats({ mission, now }: { mission: Mission; now: Date }) {
   const p = missionProgress(mission);
-  const lateness = missionLateness(mission, now);
-  const late = latenessMeta(lateness);
   const next = nextDelivery(mission);
+  const allUnknown = p.total > 0 && p.unknown === p.total;
   return (
-    <dl className="fields">
-      <Field label="Statut">
-        <span className="inline-badges">
-          <StatusBadge meta={MISSION_STATUS[mission.status]} />
-          {late && lateness.kind !== 'unknown' && <StatusBadge meta={late} />}
-        </span>
-      </Field>
-      <Field label="Véhicule">
-        {vehicle ? vehicle.registration : mission.vehicleId ? `${mission.vehicleId} (sans données télématiques)` : <Missing>Non affecté</Missing>}
-      </Field>
-      <Field label="Progression">
-        {p.total > 0 && p.unknown === p.total ? (
-          <Missing>{p.total} livraison(s), statut non fourni par la source</Missing>
+    <dl className="stats">
+      <Stat label="Horaires prévus">
+        {mission.plannedStart ? formatTime(mission.plannedStart, now) : '—'}
+        <span className="stat__arrow" aria-hidden="true">→</span>
+        <span className="sr-only"> à </span>
+        {mission.plannedEnd ? formatTime(mission.plannedEnd, now) : '—'}
+      </Stat>
+      <Stat label="Arrêts réalisés">
+        {allUnknown ? (
+          <span className="stat__muted">{p.total} sans statut</span>
         ) : (
-          <span className="progress" role="img" aria-label={`${p.done} livraisons terminées sur ${p.total}`}>
-            <span className="progress__bar">
+          <>
+            {p.done}
+            <span className="stat__unit">/{p.total}</span>
+            <span className="stat__bar" role="img" aria-label={`${p.done} arrêts réalisés sur ${p.total}`}>
               <span style={{ width: p.total ? `${(p.done / p.total) * 100}%` : 0 }} />
             </span>
-            {p.done} / {p.total}
-          </span>
-        )}
-      </Field>
-      <Field label="Prochain arrêt">
-        {next ? (
-          `${next.siteName ?? next.customerName}`
-        ) : p.unknown > 0 ? (
-          <Missing>Non déterminable (statuts absents)</Missing>
-        ) : (
-          <Missing>Aucun arrêt restant</Missing>
-        )}
-      </Field>
-      <Field label="Horaires prévus">
-        {mission.plannedStart || mission.plannedEnd ? (
-          <>
-            {mission.plannedStart ? formatTime(mission.plannedStart, now) : '?'} →{' '}
-            {mission.plannedEnd ? formatTime(mission.plannedEnd, now) : '?'}
           </>
-        ) : (
-          <Missing />
         )}
-      </Field>
+      </Stat>
       {mission.plannedDistanceKm !== undefined ? (
-        <Field label="Distance prévu / parcouru">
+        <Stat label="Prévu / parcouru" wide>
           <DistanceCell c={compareMissionDistance(mission)} />
-        </Field>
+        </Stat>
       ) : (
-        mission.actualDistanceKm !== undefined && (
-          <Field label="Distance parcourue">{formatKm(mission.actualDistanceKm)}</Field>
-        )
+        mission.actualDistanceKm !== undefined && <Stat label="Km parcourus">{formatKm(mission.actualDistanceKm)}</Stat>
+      )}
+      {mission.status !== 'completed' && (next || p.unknown === 0) && (
+        <Stat label="Prochain arrêt" wide>
+          {next ? next.siteName ?? next.customerName : <span className="stat__muted">Aucun arrêt restant</span>}
+        </Stat>
       )}
     </dl>
+  );
+}
+
+function MissionBadges({ mission, now }: { mission: Mission; now: Date }) {
+  const lateness = missionLateness(mission, now);
+  const late = lateness.kind === 'late' ? latenessMeta(lateness) : null;
+  return (
+    <p className="sheet__badges">
+      <StatusBadge meta={MISSION_STATUS[mission.status]} srPrefix="Tournée" size="md" />
+      {late && <StatusBadge meta={late} size="md" />}
+    </p>
   );
 }
 
@@ -153,76 +170,81 @@ export function VehicleSheet({ view, now, onClose, onSelectMission }: {
 }) {
   const { vehicle, mission, missionRole } = view;
   const pos = vehicle.position;
+  const meta = VEHICLE_STATUS[vehicle.status];
   return (
     <article className="sheet" aria-labelledby="sheet-title">
-      <header className="sheet__head">
-        <div>
-          <p className="sheet__kicker">Fiche véhicule</p>
-          <h2 id="sheet-title" className="sheet__title">
-            {vehicle.registration}
-          </h2>
-          {vehicle.label && <p className="sheet__sub">{vehicle.label}</p>}
-        </div>
-        <button type="button" className="btn btn--icon" onClick={onClose} aria-label="Fermer la fiche">
-          <Icon name="close" />
-        </button>
-      </header>
+      <SheetHead
+        kicker="Véhicule"
+        icon={<Icon name="truck" size={14} />}
+        title={<Plate value={vehicle.registration} size="lg" />}
+        onClose={onClose}
+        closeLabel="Fermer la fiche véhicule"
+      >
+        {vehicle.label && <p className="sheet__sub">{vehicle.label}</p>}
+        <p className="sheet__badges">
+          <StatusBadge meta={meta} srPrefix="État" size="md" />
+          {view.lateness.kind === 'late' && latenessMeta(view.lateness) && (
+            <StatusBadge meta={latenessMeta(view.lateness)!} size="md" />
+          )}
+        </p>
+      </SheetHead>
 
-      {view.needsAction && (
+      {view.needsAction && view.lateness.kind !== 'late' && (
         <p className="notice notice--warn" role="status">
-          <span aria-hidden="true">▲ </span>
-          <strong>Action requise :</strong>{' '}
-          {view.lateness.kind === 'late'
-            ? 'mission en retard.'
-            : 'mission en cours sans position récente.'}
+          <Icon name="alert" size={16} />
+          <span>
+            <strong>À vérifier :</strong> tournée en cours sans position récente.
+          </span>
         </p>
       )}
 
-      <dl className="fields">
-        <Field label="État">
-          <StatusBadge meta={VEHICLE_STATUS[vehicle.status]} />
-        </Field>
-        {vehicle.driverName && <Field label="Conducteur">{vehicle.driverName}</Field>}
-        <Field label="Dernière position">
-          {pos ? (
-            <>
-              {pos.placeLabel ?? `${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}`}
-              <br />
-              <span className={view.freshness === 'stale' ? 'text-warn' : 'muted'}>
-                {view.freshness === 'stale' && '⚠ Position ancienne · '}
-                mesurée à {formatTime(pos.recordedAt, now)} ({formatAge(pos.recordedAt, now)})
-              </span>
-            </>
-          ) : (
-            <Missing>⚠ Position indisponible</Missing>
+      <div className={`position-card ${view.freshness !== 'fresh' ? 'position-card--warn' : ''}`}>
+        <Icon name={pos ? 'pin' : 'alert'} size={18} />
+        <div>
+          <p className="position-card__place">
+            {pos ? pos.placeLabel ?? `${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}` : 'Position indisponible'}
+          </p>
+          {pos && (
+            <p className="position-card__time">
+              {view.freshness === 'stale' && 'Position ancienne · '}
+              mesurée à {formatTime(pos.recordedAt, now)}, {formatAge(pos.recordedAt, now)}
+            </p>
           )}
-        </Field>
-        <Field label="Distance du jour">
-          {vehicle.distanceTodayKm !== undefined ? formatKm(vehicle.distanceTodayKm) : <Missing />}
-        </Field>
-      </dl>
+        </div>
+      </div>
+
+      {(vehicle.driverName || vehicle.distanceTodayKm !== undefined) && (
+        <dl className="stats">
+          {vehicle.driverName && <Stat label="Conducteur">{vehicle.driverName}</Stat>}
+          {vehicle.distanceTodayKm !== undefined && <Stat label="Km du jour">{formatKm(vehicle.distanceTodayKm)}</Stat>}
+        </dl>
+      )}
 
       {mission ? (
-        <>
-          <div className="sheet__mission-head">
-            <h3 className="section-title">
-              {missionRole === 'current' ? 'Mission en cours' : missionRole === 'next' ? 'Prochaine mission' : 'Dernière mission'}
-              {' — '}
-              {mission.label ?? mission.reference}
-            </h3>
+        <section className="sheet__section" aria-labelledby="vehicle-mission-title">
+          <div className="sheet__section-head">
+            <p className="section-title" id="vehicle-mission-title">
+              {missionRole === 'current' ? 'Tournée en cours' : missionRole === 'next' ? 'Prochaine tournée' : 'Dernière tournée'}
+            </p>
             <button type="button" className="btn btn--ghost btn--sm" onClick={() => onSelectMission(mission.id)}>
-              Ouvrir la mission
+              Voir les arrêts
             </button>
           </div>
-          <MissionSummary mission={mission} vehicle={vehicle} now={now} />
+          <p className="sheet__mission-name">
+            <Icon name={missionIcon(mission)} size={16} />
+            {mission.label ?? mission.reference}
+          </p>
+          <MissionBadges mission={mission} now={now} />
+          <MissionStats mission={mission} now={now} />
           <Timeline mission={mission} now={now} />
-        </>
+        </section>
       ) : (
-        <p className="empty">Aucune mission affectée à ce véhicule aujourd'hui.</p>
+        <p className="empty-inline">Aucune tournée affectée à ce véhicule aujourd'hui.</p>
       )}
+
       {view.missions.length > 1 && (
-        <section>
-          <h3 className="section-title">Autres missions du jour</h3>
+        <section className="sheet__section">
+          <p className="section-title">Autres tournées du jour</p>
           <ul className="mini-list">
             {view.missions
               .filter((m) => m.id !== mission?.id)
@@ -230,7 +252,7 @@ export function VehicleSheet({ view, now, onClose, onSelectMission }: {
                 <li key={m.id}>
                   <button type="button" className="link" onClick={() => onSelectMission(m.id)}>
                     {m.label ?? m.reference}
-                  </button>{' '}
+                  </button>
                   <StatusBadge meta={MISSION_STATUS[m.status]} />
                 </li>
               ))}
@@ -248,30 +270,43 @@ export function MissionSheet({ mission, vehicle, now, onClose, onSelectVehicle }
   onClose: () => void;
   onSelectVehicle: (id: string) => void;
 }) {
+  const plate = vehicle?.registration ?? mission.vehicleId;
   return (
     <article className="sheet" aria-labelledby="sheet-title">
-      <header className="sheet__head">
-        <div>
-          <p className="sheet__kicker">Mission · {mission.reference}</p>
-          <h2 id="sheet-title" className="sheet__title">
-            {mission.label ?? mission.reference}
-          </h2>
-        </div>
-        <button type="button" className="btn btn--icon" onClick={onClose} aria-label="Fermer la mission">
-          <Icon name="close" />
-        </button>
-      </header>
-      {vehicle && (
-        <button type="button" className="btn btn--ghost btn--sm" onClick={() => onSelectVehicle(vehicle.id)}>
-          <Icon name="truck" size={14} /> Fiche véhicule {vehicle.registration}
-        </button>
-      )}
-      <MissionSummary mission={mission} vehicle={vehicle} now={now} />
+      <SheetHead
+        kicker={`Tournée · ${mission.reference}`}
+        icon={<Icon name={missionIcon(mission)} size={14} />}
+        title={mission.label ?? mission.reference}
+        onClose={onClose}
+        closeLabel="Fermer la tournée"
+      >
+        <MissionBadges mission={mission} now={now} />
+      </SheetHead>
+
+      {plate &&
+        (vehicle ? (
+          <button type="button" className="vehicle-link" onClick={() => onSelectVehicle(vehicle.id)}>
+            <Icon name="truck" size={16} />
+            <Plate value={plate} size="sm" />
+            <span className="vehicle-link__cta">Fiche véhicule</span>
+          </button>
+        ) : (
+          <p className="vehicle-link vehicle-link--static">
+            <Icon name="truck" size={16} />
+            <Plate value={plate} size="sm" />
+            <span className="muted">sans données Webfleet</span>
+          </p>
+        ))}
+
+      <MissionStats mission={mission} now={now} />
       <Timeline mission={mission} now={now} />
       <DeliveryList mission={mission} now={now} />
-      <p className="rule-note">
-        <Icon name="info" size={14} /> {RULE_DESCRIPTIONS.late}
-      </p>
+      <details className="rule-note">
+        <summary>
+          <Icon name="info" size={14} /> Comment le retard est calculé
+        </summary>
+        <p>{RULE_DESCRIPTIONS.late}</p>
+      </details>
     </article>
   );
 }
@@ -279,11 +314,11 @@ export function MissionSheet({ mission, vehicle, now, onClose, onSelectVehicle }
 export function DetailEmpty() {
   return (
     <div className="sheet sheet--empty">
-      <Icon name="truck" size={28} />
-      <p>
-        Sélectionnez un véhicule sur la carte ou dans la liste pour ouvrir sa fiche, ou une mission
-        pour voir ses livraisons et sa timeline.
-      </p>
+      <span className="sheet--empty__icon" aria-hidden="true">
+        <Icon name="truck" size={34} strokeWidth={1.6} />
+      </span>
+      <p className="sheet--empty__title">Aucune sélection</p>
+      <p>Choisissez un camion sur la carte ou une tournée dans la liste pour voir son état, ses arrêts et le déroulement de la journée.</p>
     </div>
   );
 }

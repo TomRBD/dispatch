@@ -3,6 +3,7 @@ import { MISSION_STATUS } from '../domain/status';
 import type { DistanceComparison, Mission, Vehicle } from '../domain/types';
 import { formatKm, formatPct, formatSignedKm } from './format';
 import { Icon } from './Icon';
+import { Plate } from './Plate';
 import { StatusBadge } from './StatusBadge';
 
 /** Cellule compacte « prévu / parcouru (écart) » réutilisée dans les fiches. */
@@ -77,11 +78,11 @@ export function DistancePanel({
                 </p>
                 <p className="muted">
                   {formatKm(day.actualKm)} parcourus pour {formatKm(day.plannedKm)} prévus, sur{' '}
-                  {day.comparable} mission(s) comparable(s) / {day.total}.
+                  {day.comparable} tournée(s) comparable(s) / {day.total}.
                 </p>
               </>
             ) : (
-              <p className="missing">Aucune mission terminée avec les deux distances : écart non calculé.</p>
+              <p className="missing">Aucune tournée terminée avec les deux distances : écart non calculé.</p>
             )}
             {byVehicle.length > 0 && (
               <>
@@ -89,7 +90,7 @@ export function DistancePanel({
                 <ul className="mini-list">
                   {byVehicle.map(({ v, agg }) => (
                     <li key={v.id}>
-                      <strong>{v.registration}</strong> — {formatKm(agg.actualKm)} / {formatKm(agg.plannedKm)} prévus
+                      <Plate value={v.registration} size="sm" /> {formatKm(agg.actualKm)} / {formatKm(agg.plannedKm)} prévus
                       {agg.deltaRatio !== undefined && <> ({formatPct(agg.deltaRatio)})</>}
                     </li>
                   ))}
@@ -100,10 +101,10 @@ export function DistancePanel({
 
           <div className="table-wrap">
             <table className="table">
-              <caption className="sr-only">Comparaison des distances par mission</caption>
+              <caption className="sr-only">Comparaison des distances par tournée</caption>
               <thead>
                 <tr>
-                  <th scope="col">Mission</th>
+                  <th scope="col">Tournée</th>
                   <th scope="col">Véhicule</th>
                   <th scope="col">Statut</th>
                   <th scope="col" className="num">Prévu</th>
@@ -122,7 +123,13 @@ export function DistancePanel({
                           {m.label ?? m.reference}
                         </button>
                       </th>
-                      <td>{v?.registration ?? m.vehicleId ?? <span className="missing">—</span>}</td>
+                      <td>
+                        {v?.registration || m.vehicleId ? (
+                          <Plate value={v?.registration ?? m.vehicleId!} size="sm" />
+                        ) : (
+                          <span className="missing">—</span>
+                        )}
+                      </td>
                       <td>
                         <StatusBadge meta={MISSION_STATUS[m.status]} />
                       </td>

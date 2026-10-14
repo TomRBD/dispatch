@@ -7,6 +7,8 @@ import { deliveryLateness, isLate } from '../domain/rules';
 import type { LatLng, Mission } from '../domain/types';
 import { formatAge, formatTime } from '../domain/time';
 import { config } from '../data/config';
+import { Icon, iconSvg } from './Icon';
+import { plateHtml } from './Plate';
 import type { Selection } from './Lists';
 
 interface Props {
@@ -33,23 +35,27 @@ function vehicleIcon(v: VehicleView, selected: boolean): L.DivIcon {
     late ? 'vm--late' : '',
     selected ? 'vm--selected' : '',
   ].join(' ');
+  const badge = late
+    ? '<span class="vm__badge vm__badge--late">!</span>'
+    : v.freshness === 'stale'
+      ? `<span class="vm__badge vm__badge--stale">${iconSvg('clock', 10, 3)}</span>`
+      : '';
   return L.divIcon({
     className: 'vm-wrap',
-    html: `<span class="${cls}"><span class="vm__glyph">${meta.glyph}</span><span class="vm__label">${esc(
+    html: `<span class="${cls}"><span class="vm__truck">${iconSvg('truck', 18, 2)}${badge}</span>${plateHtml(
       v.vehicle.registration,
-    )}</span>${late ? '<span class="vm__flag" title="En retard">!</span>' : ''}${
-      v.freshness === 'stale' ? '<span class="vm__flag vm__flag--stale" title="Position ancienne">⏱</span>' : ''
-    }</span>`,
+      esc,
+    )}</span>`,
     iconSize: undefined,
-    iconAnchor: [14, 14],
+    iconAnchor: [17, 17],
   });
 }
 
-function deliveryIcon(label: string, tone: string, late: boolean): L.DivIcon {
+function deliveryIcon(label: string, tone: string, late: boolean, kind?: 'pickup' | 'delivery'): L.DivIcon {
   return L.divIcon({
     className: 'dm-wrap',
-    html: `<span class="dm dm--${tone} ${late ? 'dm--late' : ''}">${esc(label)}</span>`,
-    iconAnchor: [11, 11],
+    html: `<span class="dm dm--${tone} ${late ? 'dm--late' : ''} ${kind ? `dm--${kind}` : ''}">${esc(label)}</span>`,
+    iconAnchor: [12, 12],
   });
 }
 
@@ -112,7 +118,7 @@ export function FleetMap({ views, selection, focusMission, now, onSelect }: Prop
         `<strong>${esc(v.vehicle.registration)}</strong> · ${esc(meta.label)}<br/>${
           v.mission ? esc(v.mission.label ?? v.mission.reference) + '<br/>' : ''
         }Position mesurée à ${formatTime(pos.recordedAt, now)} (${formatAge(pos.recordedAt, now)})`,
-        { direction: 'top', offset: [0, -14] },
+        { direction: 'top', offset: [0, -18], className: 'map-tip' },
       );
       marker.on('click', () => onSelectRef.current({ kind: 'vehicle', id: v.vehicle.id }));
       marker.addTo(layer);
@@ -138,13 +144,13 @@ export function FleetMap({ views, selection, focusMission, now, onSelect }: Prop
       .filter((d): d is typeof d & { location: LatLng } => !!d.location);
     const line: L.LatLngExpression[] = stops.map((d) => [d.location.lat, d.location.lng]);
     if (line.length > 1) {
-      L.polyline(line, { color: '#1f6f4a', weight: 3, opacity: 0.8, dashArray: '6 6' }).addTo(layer);
+      L.polyline(line, { color: '#1d6b45', weight: 3, opacity: 0.85, dashArray: '2 7', lineCap: 'round' }).addTo(layer);
     }
     stops.forEach((d, i) => {
       const meta = DELIVERY_STATUS[d.status];
       const late = isLate(deliveryLateness(d, now));
       L.marker([d.location.lat, d.location.lng], {
-        icon: deliveryIcon(String(d.sequence ?? i + 1), meta.tone, late),
+        icon: deliveryIcon(String(d.sequence ?? i + 1), meta.tone, late, d.kind),
         title: `Arrêt ${d.sequence ?? i + 1} — ${d.customerName} — ${meta.label}${late ? ', en retard' : ''}`,
         keyboard: false,
       })
@@ -152,7 +158,7 @@ export function FleetMap({ views, selection, focusMission, now, onSelect }: Prop
           `<strong>${esc(d.siteName ?? d.customerName)}</strong><br/>${esc(d.reference)} · ${esc(meta.label)}${
             late ? ' · <strong>en retard</strong>' : ''
           }`,
-          { direction: 'top', offset: [0, -10] },
+          { direction: 'top', offset: [0, -12], className: 'map-tip' },
         )
         .addTo(layer);
     });
@@ -198,12 +204,12 @@ export function FleetMap({ views, selection, focusMission, now, onSelect }: Prop
         </p>
       )}
       <div className="map__legend" aria-hidden="true">
-        <span><b className="lg lg--active">▶</b> En route</span>
-        <span><b className="lg lg--neutral">❚❚</b> À l'arrêt</span>
-        <span><b className="lg lg--muted">■</b> Contact coupé</span>
+        <span><b className="lg lg--active"><Icon name="truck" size={11} /></b> En route</span>
+        <span><b className="lg lg--neutral"><Icon name="truck" size={11} /></b> À l'arrêt</span>
+        <span><b className="lg lg--muted"><Icon name="truck" size={11} /></b> Contact coupé</span>
         <span><b className="lg lg--late">!</b> En retard</span>
-        <span><b className="lg lg--stale">⏱</b> Position ancienne</span>
-        {focusMission && <span><b className="lg lg--stop">1</b> Arrêt (tracé indicatif, pas l'itinéraire routier)</span>}
+        <span><b className="lg lg--stale"><Icon name="clock" size={10} /></b> Position ancienne</span>
+        {focusMission && <span><b className="lg lg--stop">1</b> Arrêt · tracé indicatif</span>}
       </div>
       {withoutPosition.length > 0 && (
         <div className="map__nopos">

@@ -175,7 +175,7 @@ export function App() {
                 className="tab"
                 onClick={() => setTab('missions')}
               >
-                Missions <span className="tab__count">{shownMissions.length}</span>
+                Tournées <span className="tab__count">{shownMissions.length}</span>
               </button>
             </div>
             <div id="panel-list" role="tabpanel" aria-labelledby={`tab-${tab}`} className="side__list">

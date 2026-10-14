@@ -27,7 +27,7 @@ export function buildMissionTimeline(mission: Mission, now: Date): OpsEvent[] {
   );
 
   for (const d of deliveries) {
-    const where = d.siteName ?? d.customerName;
+    const where = d.customerName || d.siteName || d.reference;
     const act = d.kind === 'pickup' ? 'Collecte' : 'Livraison';
     const lateness = deliveryLateness(d, now);
 

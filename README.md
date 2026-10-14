@@ -25,6 +25,8 @@ npm run dev        # http://localhost:5173
 
 Stack : Vite, React 19, TypeScript strict, Leaflet (carte), CSS sans framework.
 
+Interface : direction « signalisation routière » — police Overpass (dérivée de la signalisation autoroutière, intégrée localement via @fontsource), plaques d'immatriculation françaises comme repère visuel des camions, fond de carte clair CARTO Positron (`VITE_MAP_TILE_URL` pour en changer).
+
 ## Architecture
 
 ```

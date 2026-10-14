@@ -16,6 +16,8 @@
     "live": "concurrently -k -n passerelle,appli -c green,blue \"npm:server\" \"vite --mode live\""
   },
   "dependencies": {
+    "@fontsource/overpass": "^5.3.0",
+    "@fontsource/overpass-mono": "^5.3.0",
     "leaflet": "^1.9.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

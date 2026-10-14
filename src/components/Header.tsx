@@ -52,10 +52,12 @@ export function Header(p: Props) {
     <header className="topbar">
       <div className="topbar__brand">
         <span className="topbar__logo" aria-hidden="true">
-          <Icon name="truck" size={20} />
+          <Icon name="truck" size={22} />
         </span>
         <div>
-          <h1 className="topbar__title">Agrivalor Dispatch</h1>
+          <h1 className="topbar__title">
+            <span className="topbar__company">Agrivalor</span> Dispatch
+          </h1>
           <p className="topbar__day">{formatDay(p.now)}</p>
         </div>
       </div>
@@ -80,7 +82,7 @@ export function Header(p: Props) {
             'Aucune donnée chargée'
           )}
         </p>
-        <button type="button" className="btn btn--primary" onClick={p.onRefresh} disabled={p.loading}>
+        <button type="button" className={`btn btn--primary ${p.loading ? 'is-loading' : ''}`} onClick={p.onRefresh} disabled={p.loading}>
           <Icon name="refresh" size={16} /> Actualiser
         </button>
         {p.refreshIntervalS > 0 && (
