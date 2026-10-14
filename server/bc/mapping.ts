@@ -58,6 +58,14 @@ export interface MissionMapping {
   status: string | null;
   latitude: string | null;
   longitude: string | null;
+  /** Passage à vide (booléen) et son motif. */
+  emptyRun: string | null;
+  emptyRunReason: string | null;
+  /**
+   * Les heures réelles ne sont retenues que pour ces valeurs de statut BC
+   * (sens confirmé uniquement pour les missions terminées).
+   */
+  actualTimesForStatus: string[];
   windowStart: TimeField;
   windowEnd: TimeField;
   estimatedArrival: TimeField;
@@ -109,22 +117,27 @@ export const BC_MAPPING: BcMapping = {
     sequence: 'Rank',
     customer: 'Destination_Name',
     site: 'Destination_City',
-    // Mission_Excel n'a pas de champ statut : statut « inconnu » tant qu'aucune règle n'est validée.
-    status: null,
+    // Statut saisi par le chauffeur, fourni par Mission_WCAP (fusionné sur No).
+    status: 'Driver_Status',
     latitude: 'Destination_Latitude',
     longitude: 'Destination_Longitude',
+    emptyRun: 'Empty_Run',
+    emptyRunReason: 'Empty_Run_Reason',
+    actualTimesForStatus: ['Finished'],
     // Heure demandée, utilisée comme fin de créneau pour la règle de retard.
     // Requested_Date est vide en pratique : la mission a lieu le jour de la tournée.
     windowStart: null,
     windowEnd: { date: 'Tour_Date', time: 'Requested_Time' },
     estimatedArrival: null,
-    actualArrival: null,
-    actualCompletion: null,
+    // Début / fin d'intervention (Mission_WCAP, DateTime UTC).
+    actualArrival: 'Work_Starting_Date',
+    actualCompletion: 'Work_Ending_Date',
   },
   // Valeurs observées sur la journée du 2026-10-14.
   // ToControl = tournée terminée côté chauffeur, contrôle administratif en attente.
   tourneeStatus: { Open: 'planned', 'In Progress': 'in_progress', Finished: 'completed', ToControl: 'completed' },
-  missionStatus: {},
+  // Seule valeur observée (2026-10-14). Les autres valeurs restent « inconnu » jusqu'à confirmation.
+  missionStatus: { Finished: 'delivered' },
 };
 
 /** Champs obligatoires manquants (vide = correspondance utilisable). */

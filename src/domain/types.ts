@@ -69,6 +69,11 @@ export interface Delivery {
   id: string;
   /** Référence de livraison (bon de livraison / expédition). */
   reference: string;
+  /** Sens de la prestation, si la source le précise. */
+  kind?: 'pickup' | 'delivery';
+  /** Passage à vide déclaré par la source (ex. bac vide), et son motif. */
+  emptyRun?: boolean;
+  emptyRunReason?: string;
   /** Référence de commande Business Central, si disponible. */
   orderReference?: string;
   missionId: string;

@@ -20,6 +20,8 @@ export const serverConfig = {
     company: env('BC_COMPANY'),
     tourneeEntity: env('BC_TOURNEE_ENTITY', 'Tournee_Excel'),
     missionEntity: env('BC_MISSION_ENTITY', 'Mission_Excel'),
+    /** Détail des missions côté application chauffeur (statut, heures, passage à vide). Vide = désactivé. */
+    missionDetailEntity: env('BC_MISSION_DETAIL_ENTITY', 'Mission_WCAP'),
     tokenFile: resolve(ROOT_DIR, env('BC_TOKEN_FILE', 'token.txt')),
     tokenCommand: env('BC_TOKEN_COMMAND'),
     // Mêmes variables que get_bc_token.py (.env racine).

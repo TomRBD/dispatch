@@ -97,6 +97,9 @@ function mileageDistance(start: number | undefined, end: number | undefined): nu
 export interface ContractDelivery {
   id: string;
   reference: string;
+  kind?: 'pickup' | 'delivery';
+  emptyRun?: boolean;
+  emptyRunReason?: string;
   orderReference?: string;
   sequence?: number;
   customerName?: string;
@@ -129,6 +132,27 @@ export interface TransformResult {
   missions: ContractMission[];
   /** Lignes ignorées (identifiant absent, mission sans tournée du jour). */
   skipped: { tournees: number; missions: number };
+}
+
+/**
+ * Fusionne Mission_Excel et Mission_WCAP sur l'identifiant de mission :
+ * les champs de détail complètent la ligne de base ; une mission présente
+ * uniquement dans le détail est conservée.
+ */
+export function mergeMissionRows(base: Row[], detail: Row[], idField: string): Row[] {
+  const byId = new Map<string, Row>();
+  for (const row of base) {
+    const id = text(row, idField);
+    if (id) byId.set(id, row);
+  }
+  const extra: Row[] = [];
+  for (const row of detail) {
+    const id = text(row, idField);
+    const existing = id ? byId.get(id) : undefined;
+    if (existing && id) byId.set(id, { ...existing, ...row });
+    else extra.push(row);
+  }
+  return [...byId.values(), ...extra, ...base.filter((r) => !text(r, idField))];
 }
 
 export function transformBc(tournees: Row[], missions: Row[], m: BcMapping): TransformResult {
@@ -177,9 +201,14 @@ export function transformBc(tournees: Row[], missions: Row[], m: BcMapping): Tra
     const lat = number(row, place.latitude);
     const lng = number(row, place.longitude);
     const rawStatus = text(row, m.mission.status);
+    const actualAllowed = !!rawStatus && m.mission.actualTimesForStatus.includes(rawStatus);
+    const emptyRun = m.mission.emptyRun ? row[m.mission.emptyRun] === true : undefined;
     parent.deliveries.push({
       id,
       reference: text(row, m.mission.reference) ?? id,
+      kind: m.mission.direction ? (isPickup ? 'pickup' : 'delivery') : undefined,
+      emptyRun: emptyRun || undefined,
+      emptyRunReason: emptyRun ? text(row, m.mission.emptyRunReason) : undefined,
       orderReference: text(row, m.mission.orderReference),
       sequence: number(row, m.mission.sequence),
       customerName: text(row, place.customer),
@@ -190,8 +219,8 @@ export function transformBc(tournees: Row[], missions: Row[], m: BcMapping): Tra
       plannedWindowStart: readTime(row, m.mission.windowStart),
       plannedWindowEnd: readTime(row, m.mission.windowEnd),
       estimatedArrival: readTime(row, m.mission.estimatedArrival),
-      actualArrival: readTime(row, m.mission.actualArrival),
-      actualCompletion: readTime(row, m.mission.actualCompletion),
+      actualArrival: actualAllowed ? readTime(row, m.mission.actualArrival) : undefined,
+      actualCompletion: actualAllowed ? readTime(row, m.mission.actualCompletion) : undefined,
     });
   }
 

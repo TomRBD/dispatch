@@ -33,8 +33,8 @@ export const MISSION_STATUS: Record<MissionStatus, StatusMeta> = {
 export const DELIVERY_STATUS: Record<DeliveryStatus, StatusMeta> = {
   planned: { label: 'À livrer', tone: 'neutral', glyph: '○' },
   in_progress: { label: 'En cours', tone: 'active', glyph: '»' },
-  delivered: { label: 'Livrée', tone: 'ok', glyph: '✓' },
-  failed: { label: 'Non livrée', tone: 'danger', glyph: '✕' },
+  delivered: { label: 'Réalisée', tone: 'ok', glyph: '✓' },
+  failed: { label: 'Non réalisée', tone: 'danger', glyph: '✕' },
   cancelled: { label: 'Annulée', tone: 'muted', glyph: '⨯' },
   unknown: { label: 'Statut inconnu', tone: 'muted', glyph: '?' },
 };

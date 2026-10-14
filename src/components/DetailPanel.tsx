@@ -29,7 +29,7 @@ function DeliveryList({ mission, now }: { mission: Mission; now: Date }) {
   const sorted = [...mission.deliveries].sort((a, b) => (a.sequence ?? Infinity) - (b.sequence ?? Infinity));
   return (
     <section>
-      <h3 className="section-title">Livraisons</h3>
+      <h3 className="section-title">Arrêts (livraisons / collectes)</h3>
       <ol className="deliveries">
         {sorted.map((d) => (
           <DeliveryItem key={d.id} d={d} now={now} />
@@ -57,7 +57,13 @@ function DeliveryItem({ d, now }: { d: Delivery; now: Date }) {
         </div>
       </div>
       <div className="delivery__status">
-        <StatusBadge meta={DELIVERY_STATUS[d.status]} srPrefix="Livraison" />
+        {d.kind && <span className="tag">{d.kind === 'pickup' ? 'Collecte' : 'Livraison'}</span>}
+        <StatusBadge meta={DELIVERY_STATUS[d.status]} srPrefix={d.kind === 'pickup' ? 'Collecte' : 'Livraison'} />
+        {d.emptyRun && (
+          <StatusBadge
+            meta={{ label: `Passage à vide${d.emptyRunReason ? ` : ${d.emptyRunReason}` : ''}`, tone: 'warn', glyph: '∅' }}
+          />
+        )}
         {late && <StatusBadge meta={late} />}
       </div>
       <p className="delivery__times">

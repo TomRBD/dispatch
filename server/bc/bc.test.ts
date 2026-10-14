@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BcMapping } from './mapping';
 import { BC_MAPPING, missingRequired } from './mapping';
 import { extractToken, tokenExpiry } from './token';
-import { parisLocalToIso, parseIsoDurationMin, readTime, transformBc } from './transform';
+import { mergeMissionRows, parisLocalToIso, parseIsoDurationMin, readTime, transformBc } from './transform';
 
 describe('parisLocalToIso', () => {
   it('handles summer and winter time', () => {
@@ -115,5 +115,40 @@ describe('SUNDGAU COMPOST mapping', () => {
     expect(t).toMatchObject({ status: 'unknown' });
     expect(t!.plannedEnd).toBeUndefined();
     expect(t!.actualDistanceKm).toBeUndefined();
+  });
+});
+
+describe('Mission_WCAP', () => {
+  const tour = { No: '018700', Tour_Date: '2026-10-14', Vehicle_No: 'GX-349-PZ', Status: 'In Progress',
+    Planned_Starting_Time: '05:00:00', Planned_Duration: 'P0DT0H0M0.0S' };
+  const excel = [
+    { No: 'M1', Tour_No: '018700', Tour_Date: '2026-10-14', Rank: 1, Service_Type_Direction: 'Pickup',
+      Origin_Name: 'COLLEGE X', Origin_City: 'MUTZIG', Origin_Latitude: 48.54, Origin_Longitude: 7.45, Requested_Time: '00:00:00' },
+    { No: 'M2', Tour_No: '018700', Tour_Date: '2026-10-14', Rank: 2, Service_Type_Direction: 'Pickup', Origin_Name: 'SUPER U' },
+  ];
+  const wcap = [
+    { No: 'M1', Driver_Status: 'Finished', Work_Starting_Date: '2026-10-14T05:10:00Z', Work_Ending_Date: '2026-10-14T05:22:00Z',
+      Empty_Run: true, Empty_Run_Reason: 'bac vide' },
+    // Statut non terminé : les heures ne sont pas retenues (sens non confirmé).
+    { No: 'M2', Driver_Status: 'Started', Work_Starting_Date: '2026-10-14T06:00:00Z', Empty_Run: false },
+    { No: 'M3', Tour_No: '018700', Rank: 3, Driver_Status: 'Finished', Service_Type_Direction: 'Pickup', Origin_Name: 'MAIRIE' },
+  ];
+
+  it('merges detail rows on No and keeps detail-only missions', () => {
+    const rows = mergeMissionRows(excel, wcap, 'No');
+    expect(rows.map((r) => r.No)).toEqual(['M1', 'M2', 'M3']);
+    expect(rows[0]).toMatchObject({ Origin_Name: 'COLLEGE X', Driver_Status: 'Finished' });
+  });
+
+  it('maps driver status, real times (finished only) and empty runs', () => {
+    const [t] = transformBc([tour], mergeMissionRows(excel, wcap, 'No'), BC_MAPPING).missions;
+    const [m1, m2, m3] = t!.deliveries;
+    expect(m1).toMatchObject({
+      kind: 'pickup', status: 'delivered', customerName: 'COLLEGE X', emptyRun: true, emptyRunReason: 'bac vide',
+      actualArrival: '2026-10-14T05:10:00.000Z', actualCompletion: '2026-10-14T05:22:00.000Z',
+    });
+    expect(m1!.plannedWindowEnd).toBeUndefined();
+    expect(m2).toMatchObject({ status: 'unknown', actualArrival: undefined, emptyRun: undefined });
+    expect(m3).toMatchObject({ customerName: 'MAIRIE', status: 'delivered' });
   });
 });

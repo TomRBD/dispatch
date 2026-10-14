@@ -137,8 +137,8 @@ export function MissionList({
                   )}
                   {' · '}
                   {p.unknown === p.total && p.total > 0
-                    ? `${p.total} livraison(s)`
-                    : `${p.done}/${p.total} livraison(s)`}
+                    ? `${p.total} arrêt(s)`
+                    : `${p.done}/${p.total} arrêt(s)`}
                 </span>
                 <span className="row__meta">
                   <Icon name="clock" size={12} />{' '}

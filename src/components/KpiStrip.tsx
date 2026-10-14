@@ -72,22 +72,22 @@ export function KpiStrip({ kpis, missions, onShowLate, onShowAction, actionCount
         tone={kpis.missions.unassigned > 0 ? 'warn' : undefined}
       />
       <Tile
-        label="Livraisons terminées"
+        label="Arrêts réalisés"
         value={
           !ordersAvailable || (d.total > 0 && d.unknownStatus === d.total) ? UNAVAILABLE : `${d.delivered} / ${d.total}`
         }
         detail={
           !ordersAvailable ? noOrders : d.total > 0 && d.unknownStatus === d.total ? (
-            `Statut des ${d.total} livraison(s) non fourni par la source`
+            `Statut des ${d.total} arrêt(s) non fourni par la source`
           ) : <>
-            {d.inProgress} en cours · {d.planned} à livrer
-            {d.failed > 0 && <> · {d.failed} non livrée(s)</>}
+            {d.inProgress} en cours · {d.planned} à faire
+            {d.failed > 0 && <> · {d.failed} non réalisé(s)</>}
             {d.unknownStatus > 0 && <> · {d.unknownStatus} sans statut</>}
           </>
         }
       />
       <Tile
-        label="Livraisons en retard"
+        label="Arrêts en retard"
         value={ordersAvailable ? d.late : UNAVAILABLE}
         detail={
           !ordersAvailable ? noOrders : <>
@@ -97,7 +97,7 @@ export function KpiStrip({ kpis, missions, onShowLate, onShowAction, actionCount
         }
         tone={!ordersAvailable ? undefined : d.late > 0 ? 'danger' : 'ok'}
         onClick={d.late > 0 ? onShowLate : undefined}
-        actionLabel={`${d.late} livraisons en retard — afficher les missions concernées`}
+        actionLabel={`${d.late} arrêts en retard — afficher les missions concernées`}
       />
       <Tile
         label="À surveiller"

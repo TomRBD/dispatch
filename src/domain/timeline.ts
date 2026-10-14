@@ -17,7 +17,9 @@ export function buildMissionTimeline(mission: Mission, now: Date): OpsEvent[] {
     missionId: mission.id,
     plannedAt: mission.plannedStart,
     actualAt: mission.actualStart,
-    pending: !mission.actualStart && !finished,
+    // Une tournée en cours ou terminée est forcément partie : sans heure réelle, l'horodatage manque.
+    pending: !mission.actualStart && mission.status === 'planned',
+    uncertain: !mission.actualStart && mission.status === 'unknown',
   });
 
   const deliveries = [...mission.deliveries].sort(
@@ -26,6 +28,7 @@ export function buildMissionTimeline(mission: Mission, now: Date): OpsEvent[] {
 
   for (const d of deliveries) {
     const where = d.siteName ?? d.customerName;
+    const act = d.kind === 'pickup' ? 'Collecte' : 'Livraison';
     const lateness = deliveryLateness(d, now);
 
     events.push({
@@ -60,7 +63,12 @@ export function buildMissionTimeline(mission: Mission, now: Date): OpsEvent[] {
     events.push({
       id: `${d.id}:done`,
       type: 'delivery',
-      label: d.status === 'failed' ? `Livraison non réalisée — ${where}` : `Livraison — ${where}`,
+      label:
+        d.status === 'failed'
+          ? `${act} non réalisée — ${where}`
+          : d.emptyRun
+            ? `${act} — passage à vide${d.emptyRunReason ? ` (${d.emptyRunReason})` : ''} — ${where}`
+            : `${act} — ${where}`,
       missionId: mission.id,
       deliveryId: d.id,
       plannedAt: d.plannedWindowEnd,

@@ -93,13 +93,19 @@ Déjà renseignée pour SUNDGAU COMPOST :
 | Livraison | `Mission_Excel` : `No`, rattachée par `Tour_No`, ordre `Rank` |
 | Client, lieu | `Destination_Name`, `Destination_City`, `Destination_Latitude/Longitude` |
 | Fin de créneau (règle de retard) | `Tour_Date` + `Requested_Time` (`Requested_Date` est vide) |
+| Statut de l'arrêt | `Mission_WCAP.Driver_Status` (`Finished` → Réalisé), fusionné sur `No` |
+| Heures réelles | `Mission_WCAP.Work_Starting_Date` / `Work_Ending_Date`, retenues seulement si `Driver_Status = Finished` |
+| Passage à vide | `Mission_WCAP.Empty_Run` / `Empty_Run_Reason` |
+| Collecte / livraison | `Service_Type_Direction` (`Pickup` → Collecte) |
 
 Limites des données BC actuelles :
 
 - **Statut de tournée** : `Open` → Planifiée, `In Progress` → En cours, `Finished` et `ToControl` (terminée, contrôle administratif en attente) → Terminée. Toute autre valeur → « Statut inconnu ».
 - **Collectes** (`Service_Type_Direction = Pickup`) : le client et le lieu sont pris dans les champs `Origin_*` (la destination est le site Agrivalor).
-- **Statut de livraison** : `Mission_Excel` n'a pas de champ statut. Les livraisons sont « sans statut » ; leur retard est « indéterminé » (aucun retard n'est supposé).
-- **Pas d'heures réelles** (départ, arrivée, livraison) ni de **distance prévue** : la timeline les signale comme manquantes et l'écart de distance n'est pas calculé.
+- **Statut des arrêts** : fourni par `Mission_WCAP.Driver_Status` (entité `BC_MISSION_DETAIL_ENTITY`). Seule la valeur `Finished` a été observée ; toute autre valeur → « Statut inconnu » jusqu'à confirmation. Si `Mission_WCAP` est indisponible, les arrêts restent affichés sans statut ni heures réelles.
+- **Créneau** : `Requested_Time` est toujours à 00:00 sur les collectes observées : sans heure demandée, le retard d'un arrêt est « indéterminé ».
+- **Pas d'heure réelle de départ / fin de tournée** ni de **distance prévue** : la timeline les signale comme manquantes et l'écart de distance n'est pas calculé.
+- **Nom du conducteur** (`Tour_Driver_Name`) : présent dans `Mission_WCAP` mais non affiché (donnée personnelle).
 
 Tant que les champs obligatoires (`tournee.id`, `tournee.date`, `mission.id`, `mission.tourneeId`) sont vides, la passerelle répond « correspondance à configurer » plutôt que de deviner.
 

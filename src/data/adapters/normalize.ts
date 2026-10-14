@@ -77,6 +77,9 @@ function parseDelivery(v: Obj, missionId: string): Delivery | undefined {
   return {
     id,
     reference,
+    kind: v.kind === 'pickup' || v.kind === 'delivery' ? v.kind : undefined,
+    emptyRun: v.emptyRun === true ? true : undefined,
+    emptyRunReason: v.emptyRun === true ? str(v.emptyRunReason) : undefined,
     orderReference: str(v.orderReference),
     missionId,
     sequence: num(v.sequence),

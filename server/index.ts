@@ -10,7 +10,7 @@ import { bcConfigured, serverConfig, webfleetConfigured } from './config';
 import { BC_MAPPING, missingRequired } from './bc/mapping';
 import { BcHttpError, fetchEntity } from './bc/odata';
 import { TokenError } from './bc/token';
-import { transformBc } from './bc/transform';
+import { mergeMissionRows, transformBc } from './bc/transform';
 import { WebfleetError, fetchObjectReport } from './webfleet/client';
 import { type ContractVehicle, transformWebfleet } from './webfleet/transform';
 
@@ -30,16 +30,25 @@ async function bcMissions(day: string, res: ServerResponse) {
   if (missing.length) {
     return fail(res, 503, 'mapping_required', 'Correspondance des champs Business Central à configurer');
   }
-  const { tourneeEntity, missionEntity } = serverConfig.bc;
+  const { tourneeEntity, missionEntity, missionDetailEntity } = serverConfig.bc;
   const tourneeDate = BC_MAPPING.tournee.date!;
   const missionDate = BC_MAPPING.mission.date;
   try {
-    const [tournees, missions] = await Promise.all([
+    const missionQuery = missionDate ? { filter: `${missionDate} eq ${day}` } : {};
+    const [tournees, missions, details] = await Promise.all([
       fetchEntity(tourneeEntity, { filter: `${tourneeDate} eq ${day}` }),
       // Sans champ date côté mission, on ne garde que celles des tournées du jour (voir transformBc).
-      fetchEntity(missionEntity, missionDate ? { filter: `${missionDate} eq ${day}` } : {}),
+      fetchEntity(missionEntity, missionQuery),
+      // Détail facultatif : en cas d'échec, les missions restent affichées sans statut ni heures réelles.
+      missionDetailEntity
+        ? fetchEntity(missionDetailEntity, missionQuery).catch((e: unknown) => {
+            console.warn(`[bc] ${missionDetailEntity} indisponible :`, e instanceof Error ? e.message : e);
+            return [];
+          })
+        : Promise.resolve([]),
     ]);
-    const result = transformBc(tournees, missions, BC_MAPPING);
+    const merged = mergeMissionRows(missions, details, BC_MAPPING.mission.id!);
+    const result = transformBc(tournees, merged, BC_MAPPING);
     if (result.skipped.tournees || result.skipped.missions) {
       console.info(`[bc] ${day} : lignes ignorées`, result.skipped);
     }
