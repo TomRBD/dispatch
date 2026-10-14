@@ -1,12 +1,16 @@
 /**
  * Token d'accès Business Central.
  *
- * Le token est lu dans token.txt (produit par get_bc_token.py). S'il manque
- * ou a expiré, la commande BC_TOKEN_COMMAND est lancée une fois pour le
- * renouveler. Le token n'est jamais journalisé ni renvoyé au navigateur.
+ * Le token est lu dans token.txt. S'il manque ou a expiré, il est renouvelé :
+ * - directement par la passerelle (client credentials Entra ID, mêmes
+ *   variables que get_bc_token.py : BC_TOKEN_CLIENT_ID / BC_TOKEN_CLIENT_SECRET) ;
+ * - sinon via la commande BC_TOKEN_COMMAND (ex. sur un poste où le script Python
+ *   est installé).
+ * Sur le VPS, le timer systemd écrit token.txt : aucune des deux n'est requise.
+ * Le token n'est jamais journalisé ni renvoyé au navigateur.
  */
 import { execFile } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { chmod, readFile, rename, writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { ROOT_DIR, serverConfig } from '../config';
 
@@ -59,9 +63,48 @@ async function readTokenFile(): Promise<string | undefined> {
 
 let refreshing: Promise<void> | null = null;
 
-async function runTokenCommand(): Promise<void> {
-  const command = serverConfig.bc.tokenCommand;
-  if (!command) throw new TokenError('Token BC absent ou expiré, et BC_TOKEN_COMMAND non configuré.');
+/** Même flux que get_bc_token.py, avec écriture atomique de token.txt. */
+async function fetchClientCredentialsToken(): Promise<void> {
+  const { tenantId, clientId, clientSecret, tokenFile } = serverConfig.bc;
+  console.info('[bc] renouvellement du token (client credentials)');
+  let res: Response;
+  try {
+    res = await fetch(`https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: clientId,
+        client_secret: clientSecret,
+        scope: 'https://api.businesscentral.dynamics.com/.default',
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch {
+    throw new TokenError('Entra ID injoignable (réseau ou proxy).');
+  }
+  const body = (await res.json().catch(() => ({}))) as { access_token?: unknown; error?: unknown };
+  if (!res.ok || typeof body.access_token !== 'string') {
+    // Seul le code d'erreur OAuth est affiché (ex. invalid_client), jamais le secret.
+    const code = typeof body.error === 'string' ? body.error : `HTTP ${res.status}`;
+    throw new TokenError(`Entra ID a refusé la demande de token (${code}). Vérifiez BC_TOKEN_CLIENT_ID / BC_TOKEN_CLIENT_SECRET.`);
+  }
+  const tmp = `${tokenFile}.tmp`;
+  await writeFile(tmp, body.access_token, 'utf8');
+  if (process.platform !== 'win32') await chmod(tmp, 0o600);
+  await rename(tmp, tokenFile);
+}
+
+async function renewToken(): Promise<void> {
+  const { clientId, clientSecret, tokenCommand } = serverConfig.bc;
+  if (clientId && clientSecret) return fetchClientCredentialsToken();
+  if (tokenCommand) return runTokenCommand(tokenCommand);
+  throw new TokenError(
+    'Token BC absent ou expiré : renseignez BC_TOKEN_CLIENT_ID et BC_TOKEN_CLIENT_SECRET dans le .env racine.',
+  );
+}
+
+async function runTokenCommand(command: string): Promise<void> {
   const [file, ...args] = command.split(/\s+/);
   console.info('[bc] renouvellement du token via BC_TOKEN_COMMAND');
   try {
@@ -69,6 +112,10 @@ async function runTokenCommand(): Promise<void> {
   } catch (e) {
     // Sortie de la commande non journalisée : elle peut contenir le token ou le secret.
     const code = (e as { code?: unknown }).code;
+    // 9009 (cmd Windows) / ENOENT : programme introuvable (ex. Python non installé).
+    if (code === 'ENOENT' || code === 9009) {
+      throw new TokenError(`Commande introuvable : « ${file} ». Installez-la ou videz BC_TOKEN_COMMAND.`);
+    }
     throw new TokenError(`La commande de renouvellement du token a échoué (code ${String(code)}).`);
   }
 }
@@ -79,7 +126,7 @@ export async function getToken(forceRefresh = false): Promise<string> {
     const current = await readTokenFile();
     if (isUsable(current)) return current;
   }
-  refreshing ??= runTokenCommand().finally(() => (refreshing = null));
+  refreshing ??= renewToken().finally(() => (refreshing = null));
   await refreshing;
   const renewed = await readTokenFile();
   if (!isUsable(renewed)) throw new TokenError('Aucun token BC valide dans le fichier après renouvellement.');

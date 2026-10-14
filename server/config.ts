@@ -22,6 +22,9 @@ export const serverConfig = {
     missionEntity: env('BC_MISSION_ENTITY', 'Mission_Excel'),
     tokenFile: resolve(ROOT_DIR, env('BC_TOKEN_FILE', 'token.txt')),
     tokenCommand: env('BC_TOKEN_COMMAND'),
+    // Mêmes variables que get_bc_token.py (.env racine).
+    clientId: env('BC_TOKEN_CLIENT_ID'),
+    clientSecret: env('BC_TOKEN_CLIENT_SECRET'),
   },
 };
 

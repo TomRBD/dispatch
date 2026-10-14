@@ -56,7 +56,7 @@ cp server/.env.example server/.env      # tenant, environnement, société déj�
 cp .env.example .env.local               # VITE_DISPATCH_API_URL=/api → l'appli passe en mode connecté
 ```
 
-Le token est produit par **`get_bc_token.py`** (à la racine) dans **`token.txt`**. Ce script lit `BC_TOKEN_CLIENT_ID` et `BC_TOKEN_CLIENT_SECRET` dans le **`.env` racine** (dépendances : `pip install requests python-dotenv`) :
+Le token d'accès est stocké dans **`token.txt`**. La passerelle l'obtient **elle-même** (client credentials Entra ID, sans Python) à partir du **`.env` racine**, les mêmes variables que `get_bc_token.py` :
 
 ```
 # .env (racine, jamais versionné)
@@ -64,7 +64,7 @@ BC_TOKEN_CLIENT_ID=...
 BC_TOKEN_CLIENT_SECRET=...
 ```
 
-La passerelle relance automatiquement `BC_TOKEN_COMMAND` (par défaut `python get_bc_token.py`) quand le token manque, expire ou est refusé (401). Sous Windows, si `python` n'est pas reconnu, mettez `py get_bc_token.py`. Sur le VPS, où un timer systemd produit déjà le token, laissez `BC_TOKEN_COMMAND` vide.
+Il est renouvelé automatiquement quand il manque, expire ou est refusé (401). `get_bc_token.py` reste utilisable (`BC_TOKEN_COMMAND`, ou sur le VPS via le timer systemd), mais n'est plus nécessaire en local.
 
 `.env`, `server/.env`, `token.txt` et `bc-inspect.txt` sont dans `.gitignore` : **ne les commitez jamais**.
 
