@@ -78,7 +78,7 @@ npm run bc:inspect
 
 Affiche, pour chaque entité, le nom et le type des champs, leur taux de remplissage et les valeurs des champs à faible nombre de valeurs (statuts). Aucune ligne complète ni le token ne sont affichés. Le résultat est aussi écrit dans `bc-inspect.txt`.
 
-Option : `npm run bc:inspect -- 2026-10-14` limite l'échantillon à une journée (utile pour voir les statuts des tournées en cours).
+Options : `npm run bc:inspect -- 2026-10-14` limite l'échantillon à une journée ; `npm run bc:inspect -- Mission_WCAP 2026-10-14` inspecte n'importe quelle entité OData (sans filtre de date si elle n'a pas de `Tour_Date`). Pour les heures, booléens et nombres, le relevé indique s'ils sont réellement renseignés (plage horaire, vrai/faux, non nuls).
 
 ### 3. Correspondance des champs (`server/bc/mapping.ts`)
 
