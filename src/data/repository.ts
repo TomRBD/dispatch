@@ -19,8 +19,12 @@ function opsDay(d: Date): string {
   return new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(d);
 }
 
-function errorMessage(e: unknown): string {
-  return e instanceof IntegrationError ? e.message : 'Erreur inattendue lors du chargement';
+function failedState(e: unknown): SourceState {
+  if (e instanceof IntegrationError && e.code === 'not_configured') return { kind: 'not-configured' };
+  return {
+    kind: 'error',
+    message: e instanceof IntegrationError ? e.message : 'Erreur inattendue lors du chargement',
+  };
 }
 
 export function createDemoRepository(): DispatchRepository {
@@ -55,11 +59,11 @@ export function createLiveRepository(baseUrl: string): DispatchRepository {
         webfleet:
           fleet.status === 'fulfilled'
             ? { kind: 'ok', origin: 'live', fetchedAt: new Date(), rejected: fleet.value.rejected }
-            : { kind: 'error', message: errorMessage(fleet.reason) },
+            : failedState(fleet.reason),
         businessCentral:
           orders.status === 'fulfilled'
             ? { kind: 'ok', origin: 'live', fetchedAt: new Date(), rejected: orders.value.rejected }
-            : { kind: 'error', message: errorMessage(orders.reason) },
+            : failedState(orders.reason),
       };
 
       const vehicles = fleet.status === 'fulfilled' ? fleet.value.vehicles : [];

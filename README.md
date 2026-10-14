@@ -2,7 +2,7 @@
 
 Tour de contrôle transport d'Agrivalor. Sur un seul écran : carte de la flotte, missions et livraisons du jour, retards, timeline d'exploitation et comparaison des distances prévues et parcourues.
 
-> **État actuel : mode démonstration.** Aucune connexion à Webfleet ni à Business Central n'est configurée dans ce dépôt. L'interface affiche des données **fictives**, signalées en permanence par un bandeau et par l'état des sources dans l'en-tête.
+> Sans configuration, l'application tourne en **mode démonstration** : données **fictives**, signalées en permanence par un bandeau et par l'état des sources dans l'en-tête. Le branchement Business Central est décrit plus bas.
 
 ## Démarrage
 
@@ -18,6 +18,8 @@ npm run dev        # http://localhost:5173
 | `npm run typecheck` | vérification TypeScript                |
 | `npm run lint`      | ESLint                                 |
 | `npm test`          | tests unitaires (Vitest)               |
+| `npm run server`    | passerelle Business Central / Webfleet |
+| `npm run bc:inspect`| liste des champs réels de Tournee_Excel / Mission_Excel |
 
 Stack : Vite, React 19, TypeScript strict, Leaflet (carte), CSS sans framework.
 
@@ -43,21 +45,57 @@ src/
 
 L'interface ne dépend que de `DispatchRepository`. Pour passer aux données réelles, il suffit de fournir la passerelle décrite ci-dessous : aucun composant n'est à modifier.
 
-## Brancher Webfleet et Business Central
+## Brancher Business Central (missions et tournées)
 
-### Principe de sécurité
+La passerelle `server/` lit les entités OData **`Tournee_Excel`** (→ missions / tournées de l'application) et **`Mission_Excel`** (→ livraisons rattachées à une tournée) de la société `SUNDGAU COMPOST`. Le navigateur ne voit jamais le token.
 
-Le navigateur **n'appelle jamais** Webfleet ni Business Central directement. Les identifiants (compte, utilisateur et clé API Webfleet ; application Entra ID pour Business Central) doivent rester sur une **passerelle serveur** (BFF) qui :
+### 1. Configuration (une fois)
 
-1. s'authentifie auprès des deux services ;
-2. convertit leurs réponses vers le format ci-dessous ;
-3. filtre les données personnelles, en particulier les noms des conducteurs, selon ce qui est autorisé.
+```bash
+cp server/.env.example server/.env      # tenant, environnement, société déjà pré-remplis
+cp .env.example .env.local               # VITE_DISPATCH_API_URL=/api → l'appli passe en mode connecté
+```
 
-Ensuite, renseigner `VITE_DISPATCH_API_URL` dans `.env.local` (voir `.env.example`). Ne mettez **jamais** de clé dans une variable `VITE_*` : ces variables sont incluses dans le code envoyé au navigateur.
+Le token est produit par **`get_bc_token.py`** (à la racine) dans **`token.txt`**. Ce script lit `BC_TOKEN_CLIENT_ID` et `BC_TOKEN_CLIENT_SECRET` dans le **`.env` racine** (dépendances : `pip install requests python-dotenv`) :
 
-### Contrat attendu de la passerelle
+```
+# .env (racine, jamais versionné)
+BC_TOKEN_CLIENT_ID=...
+BC_TOKEN_CLIENT_SECRET=...
+```
 
-Ce contrat est défini par l'application. Ce n'est **pas** l'API Webfleet ni l'API Business Central. La correspondance avec les champs réels de ces deux services reste à établir à partir de leur documentation et de la configuration du tenant Agrivalor.
+La passerelle relance automatiquement `BC_TOKEN_COMMAND` (par défaut `python get_bc_token.py`) quand le token manque, expire ou est refusé (401). Sous Windows, si `python` n'est pas reconnu, mettez `py get_bc_token.py`. Sur le VPS, où un timer systemd produit déjà le token, laissez `BC_TOKEN_COMMAND` vide.
+
+`.env`, `server/.env`, `token.txt` et `bc-inspect.txt` sont dans `.gitignore` : **ne les commitez jamais**.
+
+### 2. Relever les champs réels
+
+```bash
+npm run bc:inspect
+```
+
+Affiche, pour chaque entité, le nom et le type des champs, leur taux de remplissage et les valeurs des champs à faible nombre de valeurs (statuts). Aucune ligne complète ni le token ne sont affichés. Le résultat est aussi écrit dans `bc-inspect.txt`.
+
+### 3. Compléter la correspondance
+
+Renseignez `server/bc/mapping.ts` (nom de chaque champ BC, valeurs de statut). Tant que les champs obligatoires (`tournee.id`, `tournee.date`, `mission.id`, `mission.tourneeId`) sont vides, la passerelle répond « correspondance à configurer » plutôt que de deviner.
+
+### 4. Lancer
+
+```bash
+npm run server   # passerelle sur http://127.0.0.1:8787
+npm run dev      # application ; /api est relayé vers la passerelle
+```
+
+L'en-tête indique l'état de chaque source : connecté, non configuré, ou l'erreur (token refusé, correspondance à configurer, BC injoignable).
+
+## Webfleet
+
+Pas encore branché : la passerelle répond « non configuré » et l'application affiche les missions BC sans positions. Les identifiants WEBFLEET.connect (compte, utilisateur API, mot de passe, clé API) iront dans `server/.env`.
+
+## Contrat de la passerelle (format renvoyé au navigateur)
+
+Ce contrat (servi par `server/`) est défini par l'application. Ce n'est **pas** l'API Webfleet ni l'API Business Central. La correspondance avec les champs réels de ces deux services reste à établir à partir de leur documentation et de la configuration du tenant Agrivalor.
 
 Les dates sont au format ISO 8601. Tous les champs marqués `?` sont facultatifs : s'ils sont absents, l'interface affiche « Non disponible », sans valeur inventée.
 
@@ -124,7 +162,8 @@ Leaflet affiche par défaut les tuiles OpenStreetMap (`VITE_MAP_TILE_URL`). Si l
 
 ## Limites connues
 
-- Aucune intégration réelle : la passerelle serveur reste à développer et la correspondance des champs Webfleet / Business Central reste à faire.
+- Business Central : passerelle prête, correspondance des champs (`server/bc/mapping.ts`) à compléter après `npm run bc:inspect`.
+- Webfleet : non branché.
 - Les règles métier ci-dessus sont des propositions à valider.
 - L'affichage des noms de conducteurs dépend uniquement de leur présence dans les données : le filtrage RGPD doit être fait par la passerelle.
 - Il n'y a pas de tests de composants d'interface. Les tests couvrent les règles, la timeline et la validation des données externes.

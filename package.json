@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc -p tsconfig.json && tsc -p server/tsconfig.json",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "server": "tsx server/index.ts",
+    "bc:inspect": "tsx server/bc/inspect.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
@@ -19,12 +21,14 @@
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@types/leaflet": "^1.9.22",
+    "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^9.39.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^17.13.0",
+    "tsx": "^4.23.15",
     "typescript": "5.8",
     "typescript-eslint": "^8.71.2",
     "vite": "^6.4.4",
