@@ -9,3 +9,4 @@ dist
 server/.env
 token.txt
 bc-inspect.txt
+webfleet-inspect.txt

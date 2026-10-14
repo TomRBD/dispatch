@@ -6,11 +6,13 @@
  * transmettre le token ni le détail des erreurs internes.
  */
 import { createServer, type ServerResponse } from 'node:http';
-import { bcConfigured, serverConfig } from './config';
+import { bcConfigured, serverConfig, webfleetConfigured } from './config';
 import { BC_MAPPING, missingRequired } from './bc/mapping';
 import { BcHttpError, fetchEntity } from './bc/odata';
 import { TokenError } from './bc/token';
 import { transformBc } from './bc/transform';
+import { WebfleetError, fetchObjectReport } from './webfleet/client';
+import { type ContractVehicle, transformWebfleet } from './webfleet/transform';
 
 type ErrorCode = 'not_configured' | 'mapping_required' | 'auth_failed' | 'upstream_error' | 'bad_request';
 
@@ -55,6 +57,36 @@ async function bcMissions(day: string, res: ServerResponse) {
   }
 }
 
+// WEBFLEET.connect limite showObjectReportExtern à 6 requêtes / minute : cache partagé.
+const FLEET_TTL_MS = 30_000;
+let fleetCache: { at: number; vehicles: ContractVehicle[] } | null = null;
+let fleetInflight: Promise<ContractVehicle[]> | null = null;
+
+async function loadFleet(): Promise<ContractVehicle[]> {
+  if (fleetCache && Date.now() - fleetCache.at < FLEET_TTL_MS) return fleetCache.vehicles;
+  fleetInflight ??= fetchObjectReport()
+    .then((rows) => {
+      const vehicles = transformWebfleet(rows, serverConfig.webfleet.showDriverNames);
+      fleetCache = { at: Date.now(), vehicles };
+      return vehicles;
+    })
+    .finally(() => (fleetInflight = null));
+  return fleetInflight;
+}
+
+async function webfleetFleet(res: ServerResponse) {
+  if (!webfleetConfigured()) return fail(res, 503, 'not_configured', 'Webfleet non configuré');
+  try {
+    return send(res, 200, { vehicles: await loadFleet() });
+  } catch (e) {
+    console.error('[webfleet]', e instanceof Error ? e.message : e);
+    if (e instanceof WebfleetError && e.kind === 'auth') {
+      return fail(res, 502, 'auth_failed', 'Accès refusé par Webfleet');
+    }
+    return fail(res, 502, 'upstream_error', 'Webfleet indisponible');
+  }
+}
+
 const server = createServer((req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost');
   const path = url.pathname.replace(/^\/api/, '');
@@ -68,9 +100,7 @@ const server = createServer((req, res) => {
     return void bcMissions(day, res);
   }
 
-  if (path === '/webfleet/fleet') {
-    return fail(res, 503, 'not_configured', 'Webfleet non configuré');
-  }
+  if (path === '/webfleet/fleet') return void webfleetFleet(res);
 
   return fail(res, 404, 'bad_request', 'Route inconnue');
 });
@@ -78,6 +108,7 @@ const server = createServer((req, res) => {
 server.listen(serverConfig.port, '127.0.0.1', () => {
   console.info(`Passerelle Dispatch : http://127.0.0.1:${serverConfig.port}`);
   console.info(`Business Central : ${bcConfigured() ? 'configuré' : 'non configuré'}`);
+  console.info(`Webfleet : ${webfleetConfigured() ? 'configuré' : 'non configuré'}`);
   const missing = missingRequired(BC_MAPPING);
   if (missing.length) console.info(`Correspondance BC incomplète : ${missing.join(', ')} (npm run bc:inspect)`);
 });

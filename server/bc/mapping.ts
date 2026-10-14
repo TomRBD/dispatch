@@ -43,6 +43,13 @@ export interface MissionMapping {
   tourneeId: string | null;
   /** Champ date (Edm.Date) pour filtrer la journée, si disponible sur cette entité. */
   date: string | null;
+  /**
+   * Sens de la prestation. Pour une collecte (valeur `pickupValue`), le client
+   * est l'origine : les champs `pickup` remplacent client / lieu / coordonnées.
+   */
+  direction: string | null;
+  pickupValue: string;
+  pickup: { customer: string | null; site: string | null; latitude: string | null; longitude: string | null };
   reference: string | null;
   orderReference: string | null;
   sequence: string | null;
@@ -94,6 +101,9 @@ export const BC_MAPPING: BcMapping = {
     id: 'No',
     tourneeId: 'Tour_No',
     date: 'Tour_Date',
+    direction: 'Service_Type_Direction',
+    pickupValue: 'Pickup',
+    pickup: { customer: 'Origin_Name', site: 'Origin_City', latitude: 'Origin_Latitude', longitude: 'Origin_Longitude' },
     reference: 'No',
     orderReference: null,
     sequence: 'Rank',
@@ -103,15 +113,17 @@ export const BC_MAPPING: BcMapping = {
     status: null,
     latitude: 'Destination_Latitude',
     longitude: 'Destination_Longitude',
-    // Heure demandée par le client, utilisée comme fin de créneau pour la règle de retard.
+    // Heure demandée, utilisée comme fin de créneau pour la règle de retard.
+    // Requested_Date est vide en pratique : la mission a lieu le jour de la tournée.
     windowStart: null,
-    windowEnd: { date: 'Requested_Date', time: 'Requested_Time' },
+    windowEnd: { date: 'Tour_Date', time: 'Requested_Time' },
     estimatedArrival: null,
     actualArrival: null,
     actualCompletion: null,
   },
-  // Seule valeur observée à ce jour ; les autres valeurs restent « inconnu » jusqu'à confirmation.
-  tourneeStatus: { Finished: 'completed' },
+  // Valeurs observées sur la journée du 2026-10-14.
+  // ToControl = tournée terminée côté chauffeur, contrôle administratif en attente.
+  tourneeStatus: { Open: 'planned', 'In Progress': 'in_progress', Finished: 'completed', ToControl: 'completed' },
   missionStatus: {},
 };
 

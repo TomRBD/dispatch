@@ -26,7 +26,21 @@ export const serverConfig = {
     clientId: env('BC_TOKEN_CLIENT_ID'),
     clientSecret: env('BC_TOKEN_CLIENT_SECRET'),
   },
+  webfleet: {
+    baseUrl: env('WEBFLEET_BASE_URL', 'https://csv.webfleet.com').replace(/\/+$/, ''),
+    account: env('WEBFLEET_ACCOUNT'),
+    username: env('WEBFLEET_USERNAME'),
+    password: env('WEBFLEET_PASSWORD'),
+    apiKey: env('WEBFLEET_API_KEY') || env('WEBFLEET_APIKEY'),
+    /** Noms des conducteurs : donnée personnelle, masquée sauf accord explicite. */
+    showDriverNames: env('WEBFLEET_SHOW_DRIVER_NAMES').toLowerCase() === 'true',
+  },
 };
+
+export function webfleetConfigured(): boolean {
+  const w = serverConfig.webfleet;
+  return Boolean(w.account && w.username && w.password && w.apiKey);
+}
 
 export function bcConfigured(): boolean {
   return Boolean(serverConfig.bc.tenantId && serverConfig.bc.company);

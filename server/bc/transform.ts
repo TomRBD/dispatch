@@ -2,6 +2,7 @@
  * Conversion des lignes OData Tournee_Excel / Mission_Excel vers le contrat
  * JSON attendu par l'application (voir README). Fonctions pures, testées.
  */
+import { canonicalPlate } from '../plate';
 import type { BcMapping, TimeField } from './mapping';
 
 type Row = Record<string, unknown>;
@@ -146,7 +147,8 @@ export function transformBc(tournees: Row[], missions: Row[], m: BcMapping): Tra
       id,
       reference: text(row, m.tournee.reference) ?? id,
       label: text(row, m.tournee.label),
-      vehicleId: text(row, m.tournee.vehicle),
+      // Format « AA-123-AA » pour le rapprochement avec Webfleet.
+      vehicleId: canonicalPlate(text(row, m.tournee.vehicle)) ?? text(row, m.tournee.vehicle),
       status: (rawStatus && m.tourneeStatus[rawStatus]) || 'unknown',
       plannedStart,
       plannedEnd:
@@ -170,16 +172,18 @@ export function transformBc(tournees: Row[], missions: Row[], m: BcMapping): Tra
       skipped.missions += 1;
       continue;
     }
-    const lat = number(row, m.mission.latitude);
-    const lng = number(row, m.mission.longitude);
+    const isPickup = !!m.mission.direction && text(row, m.mission.direction) === m.mission.pickupValue;
+    const place = isPickup ? m.mission.pickup : m.mission;
+    const lat = number(row, place.latitude);
+    const lng = number(row, place.longitude);
     const rawStatus = text(row, m.mission.status);
     parent.deliveries.push({
       id,
       reference: text(row, m.mission.reference) ?? id,
       orderReference: text(row, m.mission.orderReference),
       sequence: number(row, m.mission.sequence),
-      customerName: text(row, m.mission.customer),
-      siteName: text(row, m.mission.site),
+      customerName: text(row, place.customer),
+      siteName: text(row, place.site),
       // BC renvoie 0 pour une coordonnée non saisie.
       location: lat !== undefined && lng !== undefined && !(lat === 0 && lng === 0) ? { lat, lng } : undefined,
       status: (rawStatus && m.missionStatus[rawStatus]) || 'unknown',

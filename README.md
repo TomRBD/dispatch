@@ -20,6 +20,8 @@ npm run dev        # http://localhost:5173
 | `npm test`          | tests unitaires (Vitest)               |
 | `npm run server`    | passerelle Business Central / Webfleet |
 | `npm run bc:inspect`| liste des champs réels de Tournee_Excel / Mission_Excel |
+| `npm run webfleet:inspect` | vérifie l'accès Webfleet et liste les champs reçus |
+| `npm run live`      | passerelle + application en mode connecté |
 
 Stack : Vite, React 19, TypeScript strict, Leaflet (carte), CSS sans framework.
 
@@ -90,28 +92,46 @@ Déjà renseignée pour SUNDGAU COMPOST :
 | Distance parcourue | `Ending_Mileage − Starting_Mileage` (si les deux compteurs sont cohérents) |
 | Livraison | `Mission_Excel` : `No`, rattachée par `Tour_No`, ordre `Rank` |
 | Client, lieu | `Destination_Name`, `Destination_City`, `Destination_Latitude/Longitude` |
-| Fin de créneau (règle de retard) | `Requested_Date` + `Requested_Time` |
+| Fin de créneau (règle de retard) | `Tour_Date` + `Requested_Time` (`Requested_Date` est vide) |
 
 Limites des données BC actuelles :
 
-- **Statut de tournée** : seule la valeur `Finished` a été observée (→ Terminée). Les autres valeurs s'affichent « Statut inconnu » jusqu'à ce qu'elles soient ajoutées dans `tourneeStatus`.
+- **Statut de tournée** : `Open` → Planifiée, `In Progress` → En cours, `Finished` et `ToControl` (terminée, contrôle administratif en attente) → Terminée. Toute autre valeur → « Statut inconnu ».
+- **Collectes** (`Service_Type_Direction = Pickup`) : le client et le lieu sont pris dans les champs `Origin_*` (la destination est le site Agrivalor).
 - **Statut de livraison** : `Mission_Excel` n'a pas de champ statut. Les livraisons sont « sans statut » ; leur retard est « indéterminé » (aucun retard n'est supposé).
 - **Pas d'heures réelles** (départ, arrivée, livraison) ni de **distance prévue** : la timeline les signale comme manquantes et l'écart de distance n'est pas calculé.
 
 Tant que les champs obligatoires (`tournee.id`, `tournee.date`, `mission.id`, `mission.tourneeId`) sont vides, la passerelle répond « correspondance à configurer » plutôt que de deviner.
 
-### 4. Lancer
+### 4. Lancer en mode connecté
 
 ```bash
-npm run server   # passerelle sur http://127.0.0.1:8787
-npm run dev      # application ; /api est relayé vers la passerelle
+npm run live     # passerelle + application, http://localhost:5173
 ```
+
+`npm run live` lance la passerelle et l'application en mode connecté (`.env.live` : `VITE_DISPATCH_API_URL=/api`). `npm run dev` seul reste en mode démonstration.
 
 L'en-tête indique l'état de chaque source : connecté, non configuré, ou l'erreur (token refusé, correspondance à configurer, BC injoignable).
 
-## Webfleet
+## Brancher Webfleet (positions et état des véhicules)
 
-Pas encore branché : la passerelle répond « non configuré » et l'application affiche les missions BC sans positions. Les identifiants WEBFLEET.connect (compte, utilisateur API, mot de passe, clé API) iront dans `server/.env`.
+Identifiants WEBFLEET.connect dans le **`.env` racine** :
+
+```
+WEBFLEET_BASE_URL=https://csv.webfleet.com
+WEBFLEET_ACCOUNT=...
+WEBFLEET_USERNAME=...
+WEBFLEET_PASSWORD=...
+WEBFLEET_API_KEY=...
+# WEBFLEET_SHOW_DRIVER_NAMES=true   # noms des conducteurs : masqués par défaut (RGPD)
+```
+
+Vérification : `npm run webfleet:inspect` (champs reçus, immatriculations reconnues, états ; ni identifiants ni positions affichés).
+
+- Action utilisée : `showObjectReportExtern` (dernière position connue). WEBFLEET.connect la limite à 6 requêtes/minute : la passerelle met le résultat en cache 30 s.
+- Position : `latitude_mdeg` / `longitude_mdeg` (micro-degrés), horodatée par `pos_time`, lieu `postext`.
+- État : `ignition` = 0 → Contact coupé ; contact + `standstill` = 0 → En route ; contact + `standstill` = 1 → À l'arrêt ; sinon État inconnu.
+- Rapprochement avec BC : immatriculation extraite de `objectname` et de `Vehicle_No`, normalisée en `AA-123-AA`. Un objet Webfleet sans immatriculation reconnaissable reste affiché, sans lien avec une tournée.
 
 ## Contrat de la passerelle (format renvoyé au navigateur)
 
@@ -183,7 +203,7 @@ Leaflet affiche par défaut les tuiles OpenStreetMap (`VITE_MAP_TILE_URL`). Si l
 ## Limites connues
 
 - Business Central : branché sur `Tournee_Excel` / `Mission_Excel` ; statuts de livraison, heures réelles et distance prévue absents de ces entités (voir plus haut).
-- Webfleet : non branché.
+- Webfleet : dernière position et état uniquement (pas d'historique de trajet ni de distance par tournée).
 - Les règles métier ci-dessus sont des propositions à valider.
 - L'affichage des noms de conducteurs dépend uniquement de leur présence dans les données : le filtrage RGPD doit être fait par la passerelle.
 - Il n'y a pas de tests de composants d'interface. Les tests couvrent les règles, la timeline et la validation des données externes.
