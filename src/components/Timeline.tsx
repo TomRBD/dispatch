@@ -2,6 +2,7 @@ import { buildMissionTimeline, countMissingTimestamps } from '../domain/timeline
 import type { Mission, OpsEvent } from '../domain/types';
 import { formatTime, minutesBetween, formatDuration } from '../domain/time';
 
+// Départ et fin de tournée sans heure réelle : on n'affiche que l'heure prévue.
 const TYPE_GLYPH: Record<OpsEvent['type'], string> = {
   departure: '⇢',
   arrival: '⌖',
@@ -14,6 +15,8 @@ function eventState(e: OpsEvent): 'done' | 'pending' | 'delay' | 'missing' | 'un
   if (e.type === 'delay') return 'delay';
   if (e.pending) return 'pending';
   if (e.uncertain) return 'uncertain';
+  // Départ / fin de tournée sans heure réelle : seule l'heure prévue est connue, sans alerte.
+  if (!e.actualAt && !e.deliveryId) return 'pending';
   return e.actualAt ? 'done' : 'missing';
 }
 
@@ -60,8 +63,8 @@ export function Timeline({ mission, now }: { mission: Mission; now: Date }) {
                       {formatDuration(drift)})
                     </span>
                   )}
-                  {state === 'pending' && <span className="tl__tag">À venir</span>}
-                  {state === 'missing' && <span className="tl__tag tl__tag--warn">Horodatage manquant</span>}
+                  {state === 'pending' && (e.pending || !e.plannedAt) && <span className="tl__tag">À venir</span>}
+                  {state === 'missing' && e.deliveryId && <span className="tl__tag tl__tag--warn">Horodatage manquant</span>}
                   {state === 'uncertain' && <span className="tl__tag">Réalisation non confirmée par la source</span>}
                   {!e.actualAt && !e.plannedAt && state === 'pending' && (
                     <span className="tl__planned">Aucun horaire prévu</span>

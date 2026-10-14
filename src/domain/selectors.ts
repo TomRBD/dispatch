@@ -76,7 +76,14 @@ export interface DayKpis {
   vehiclesWithMission: number;
   missions: { total: number; planned: number; inProgress: number; completed: number; unassigned: number };
   deliveries: { total: number; delivered: number; inProgress: number; planned: number; failed: number; unknownStatus: number; late: number; lateUnknown: number };
+  /** Tournées non terminées en retard (actionnables). */
   lateMissions: number;
+  /** Tournées terminées en retard sur leur fin prévue. */
+  lateCompletedMissions: number;
+  /** Tournées dont le retard n'est pas évaluable (pas de fin prévue ni de créneau). */
+  lateUnknownMissions: number;
+  /** Km parcourus (compteurs) sur les tournées qui les fournissent. */
+  drivenKm: { total: number; missions: number };
   positionsStale: number;
   positionsUnavailable: number;
 }
@@ -109,6 +116,17 @@ export function computeKpis(s: DispatchSnapshot, views: VehicleView[], now: Date
     lateMissions: s.missions.filter(
       (m) => m.status !== 'completed' && isLate(missionLateness(m, now)),
     ).length,
+    lateCompletedMissions: s.missions.filter(
+      (m) => m.status === 'completed' && isLate(missionLateness(m, now)),
+    ).length,
+    lateUnknownMissions: s.missions.filter((m) => missionLateness(m, now).kind === 'unknown').length,
+    drivenKm: s.missions.reduce(
+      (acc, m) =>
+        m.actualDistanceKm === undefined
+          ? acc
+          : { total: acc.total + m.actualDistanceKm, missions: acc.missions + 1 },
+      { total: 0, missions: 0 },
+    ),
     positionsStale: views.filter((v) => v.freshness === 'stale').length,
     positionsUnavailable: views.filter((v) => v.freshness === 'unavailable').length,
   };

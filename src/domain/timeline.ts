@@ -4,7 +4,7 @@
  * ni réelle est conservé et signalé comme « horodatage manquant ».
  */
 import type { Mission, OpsEvent } from './types';
-import { deliveryLateness } from './rules';
+import { deliveryLateness, missionActualEnd, tourOverrun } from './rules';
 
 export function buildMissionTimeline(mission: Mission, now: Date): OpsEvent[] {
   const events: OpsEvent[] = [];
@@ -78,20 +78,32 @@ export function buildMissionTimeline(mission: Mission, now: Date): OpsEvent[] {
     });
   }
 
+  const overrun = tourOverrun(mission, now);
+  if (overrun.kind === 'late') {
+    events.push({
+      id: `${mission.id}:overrun`,
+      type: 'delay',
+      label: 'Dépassement de la fin prévue',
+      missionId: mission.id,
+      actualAt: overrun.since,
+      pending: false,
+    });
+  }
+
   events.push({
     id: `${mission.id}:end`,
     type: 'mission_end',
     label: 'Fin de mission',
     missionId: mission.id,
     plannedAt: mission.plannedEnd,
-    actualAt: mission.actualEnd,
+    actualAt: mission.status === 'completed' ? missionActualEnd(mission) : mission.actualEnd,
     pending: !mission.actualEnd && !finished,
   });
 
   return events;
 }
 
-/** Nombre d'événements réalisés sans horodatage réel. */
+/** Nombre d'arrêts réalisés sans horodatage réel (départ / fin de tournée exclus). */
 export function countMissingTimestamps(events: OpsEvent[]): number {
-  return events.filter((e) => !e.pending && !e.uncertain && !e.actualAt).length;
+  return events.filter((e) => e.deliveryId && !e.pending && !e.uncertain && !e.actualAt).length;
 }

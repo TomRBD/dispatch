@@ -104,7 +104,7 @@ Limites des données BC actuelles :
 - **Collectes** (`Service_Type_Direction = Pickup`) : le client et le lieu sont pris dans les champs `Origin_*` (la destination est le site Agrivalor).
 - **Statut des arrêts** : fourni par `Mission_WCAP.Driver_Status` (entité `BC_MISSION_DETAIL_ENTITY`). Seule la valeur `Finished` a été observée ; toute autre valeur → « Statut inconnu » jusqu'à confirmation. Si `Mission_WCAP` est indisponible, les arrêts restent affichés sans statut ni heures réelles.
 - **Créneau** : `Requested_Time` est toujours à 00:00 sur les collectes observées : sans heure demandée, le retard d'un arrêt est « indéterminé ».
-- **Pas d'heure réelle de départ / fin de tournée** ni de **distance prévue** : la timeline les signale comme manquantes et l'écart de distance n'est pas calculé.
+- **Pas d'heure réelle de départ / fin de tournée** ni de **distance prévue** : la timeline n'affiche que l'heure prévue de départ et de fin ; la comparaison prévu / parcouru est masquée (seuls les km parcourus des compteurs sont affichés). Elle réapparaît automatiquement si une distance prévue est fournie.
 - **Nom du conducteur** (`Tour_Driver_Name`) : présent dans `Mission_WCAP` mais non affiché (donnée personnelle).
 
 Tant que les champs obligatoires (`tournee.id`, `tournee.date`, `mission.id`, `mission.tourneeId`) sont vides, la passerelle répond « correspondance à configurer » plutôt que de deviner.
@@ -188,7 +188,8 @@ Ces règles sont centralisées dans `src/domain/rules.ts`. L'application les aff
 
 | Règle | Valeur de départ |
 | --- | --- |
-| **Retard** : l'arrivée (réelle, ou ETA fournie par une source) dépasse la fin du créneau prévu de plus de la tolérance, ou la tolérance est dépassée sans livraison enregistrée. Le retard commence à la fin du créneau. Sans fin de créneau, le retard est « indéterminé ». | tolérance 15 min |
+| **Retard d'une tournée** : dépassement de l'heure de fin prévue (début prévu + durée prévue) de plus de la tolérance — tournée encore en cours après cette heure, ou terminée plus tard (fin réelle = fin de tournée, à défaut fin du dernier arrêt réalisé). Le retard commence à l'heure de fin prévue. Sans durée prévue, le retard est « indéterminé » (non affiché). | tolérance 15 min |
+| **Retard d'un arrêt** : l'arrivée dépasse la fin de son créneau de plus de la tolérance (créneaux absents dans les collectes BC actuelles). | tolérance 15 min |
 | **Position ancienne** : aucune nouvelle mesure GPS depuis… | 15 min |
 | **Écart de distance signalé** : \|parcouru − prévu\| / prévu, calculé uniquement pour les missions **terminées** qui ont les deux distances | > 20 % |
 | **Action requise** (véhicule) : mission en retard, ou mission en cours sans position récente | — |

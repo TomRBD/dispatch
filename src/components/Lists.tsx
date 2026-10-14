@@ -78,7 +78,7 @@ export function VehicleList({
               </span>
               <span className="row__side">
                 <StatusBadge meta={VEHICLE_STATUS[v.vehicle.status]} srPrefix="État" />
-                {late && v.lateness.kind !== 'on_time' && <StatusBadge meta={late} />}
+                {late && v.lateness.kind === 'late' && <StatusBadge meta={late} />}
               </span>
             </button>
           </li>
@@ -148,7 +148,7 @@ export function MissionList({
               </span>
               <span className="row__side">
                 <StatusBadge meta={MISSION_STATUS[m.status]} srPrefix="Mission" />
-                {late && lateness.kind !== 'on_time' && <StatusBadge meta={late} />}
+                {late && lateness.kind === 'late' && <StatusBadge meta={late} />}
               </span>
             </button>
           </li>

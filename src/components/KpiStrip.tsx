@@ -87,17 +87,18 @@ export function KpiStrip({ kpis, missions, onShowLate, onShowAction, actionCount
         }
       />
       <Tile
-        label="Arrêts en retard"
-        value={ordersAvailable ? d.late : UNAVAILABLE}
+        label="Tournées en retard"
+        value={ordersAvailable ? kpis.lateMissions : UNAVAILABLE}
         detail={
           !ordersAvailable ? noOrders : <>
-            {kpis.lateMissions} mission(s) concernée(s)
-            {d.lateUnknown > 0 && <> · {d.lateUnknown} non évaluable(s)</>}
+            en cours au-delà de la fin prévue
+            {kpis.lateCompletedMissions > 0 && <> · {kpis.lateCompletedMissions} terminée(s) en retard</>}
+            {kpis.lateUnknownMissions > 0 && <> · {kpis.lateUnknownMissions} sans fin prévue</>}
           </>
         }
-        tone={!ordersAvailable ? undefined : d.late > 0 ? 'danger' : 'ok'}
-        onClick={d.late > 0 ? onShowLate : undefined}
-        actionLabel={`${d.late} arrêts en retard — afficher les missions concernées`}
+        tone={!ordersAvailable ? undefined : kpis.lateMissions > 0 ? 'danger' : 'ok'}
+        onClick={kpis.lateMissions > 0 ? onShowLate : undefined}
+        actionLabel={`${kpis.lateMissions} tournées en retard — afficher les tournées concernées`}
       />
       <Tile
         label="À surveiller"
@@ -111,20 +112,26 @@ export function KpiStrip({ kpis, missions, onShowLate, onShowAction, actionCount
         onClick={actionCount > 0 ? onShowAction : undefined}
         actionLabel={`${actionCount} véhicules nécessitent une action — filtrer la liste`}
       />
-      <Tile
-        label="Distance (missions terminées)"
-        value={dist.comparable > 0 ? formatKm(dist.actualKm) : 'Non calculable'}
-        detail={
-          dist.comparable > 0 && dist.deltaRatio !== undefined ? (
+      {dist.comparable > 0 && dist.deltaRatio !== undefined ? (
+        <Tile
+          label="Distance (tournées terminées)"
+          value={formatKm(dist.actualKm)}
+          detail={
             <>
-              prévu {formatKm(dist.plannedKm)} · écart {formatPct(dist.deltaRatio)} · sur{' '}
-              {dist.comparable} mission(s) / {dist.total}
+              prévu {formatKm(dist.plannedKm)} · écart {formatPct(dist.deltaRatio)} · sur {dist.comparable}{' '}
+              tournée(s) / {dist.total}
             </>
-          ) : (
-            'Aucune mission avec distances prévue et parcourue'
-          )
-        }
-      />
+          }
+        />
+      ) : (
+        kpis.drivenKm.missions > 0 && (
+          <Tile
+            label="Km parcourus"
+            value={formatKm(kpis.drivenKm.total)}
+            detail={`compteurs de ${kpis.drivenKm.missions} tournée(s) / ${kpis.missions.total}`}
+          />
+        )
+      )}
     </section>
   );
 }

@@ -146,7 +146,7 @@ h1, h2, h3 { margin: 0; }
 .map-panel { overflow: hidden; min-height: 0; }
 
 /* ---------- KPI ---------- */
-.kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
 .kpi {
   display: flex; flex-direction: column; gap: 2px; text-align: left;
   background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--line-strong);
@@ -351,9 +351,6 @@ h1, h2, h3 { margin: 0; }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
 
 /* ---------- Responsive ---------- */
-@media (max-width: 1360px) {
-  .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
 @media (max-width: 1180px) {
   .workspace { grid-template-columns: minmax(280px, 320px) minmax(0, 1fr); height: auto; min-height: 0; }
   .side, .map-panel { height: 620px; }

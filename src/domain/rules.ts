@@ -24,7 +24,7 @@ export const RULES = {
 } as const;
 
 export const RULE_DESCRIPTIONS = {
-  late: `Une livraison est en retard lorsque son arrivée (réelle, ou estimée par la source) dépasse la fin du créneau prévu de plus de ${RULES.lateToleranceMin} min, ou lorsque ce délai est dépassé sans livraison enregistrée. Sans fin de créneau prévue, ou sans statut de livraison, le retard est indéterminé.`,
+  late: `Une tournée est en retard lorsqu'elle dépasse son heure de fin prévue (début prévu + durée prévue) de plus de ${RULES.lateToleranceMin} min : encore en cours après cette heure, ou terminée plus tard (fin réelle = fin de tournée, à défaut fin du dernier arrêt réalisé). Un arrêt est en retard lorsque son arrivée dépasse la fin de son créneau de plus de ${RULES.lateToleranceMin} min. Sans heure de fin prévue ni créneau, le retard est indéterminé.`,
   stale: `Une position est considérée comme ancienne au-delà de ${RULES.stalePositionMin} min sans nouvelle mesure.`,
   distance: `L'écart compare la distance parcourue (télématique) à la distance prévue (planning) pour les missions où les deux valeurs existent. Un écart supérieur à ${Math.round(RULES.distanceAnomalyRatio * 100)} % est signalé. Pour une mission en cours, la distance parcourue est partielle et l'écart n'est pas calculé.`,
 } as const;
@@ -78,16 +78,41 @@ export function deliveryLateness(delivery: Delivery, now: Date): Lateness {
  * Retard d'une mission = retard le plus important parmi ses livraisons.
  * Si aucune livraison n'est évaluable, le retard est inconnu.
  */
+/** Fin réelle de tournée : heure de fin fournie, sinon fin du dernier arrêt réalisé. */
+export function missionActualEnd(mission: Mission): Date | undefined {
+  if (mission.actualEnd) return mission.actualEnd;
+  const ends = mission.deliveries.map((d) => d.actualCompletion?.getTime()).filter((t): t is number => t !== undefined);
+  return ends.length ? new Date(Math.max(...ends)) : undefined;
+}
+
+/** Règle tournée : dépassement de l'heure de fin prévue (voir RULE_DESCRIPTIONS.late). */
+export function tourOverrun(mission: Mission, now: Date): Lateness {
+  const deadline = mission.plannedEnd;
+  if (!deadline || mission.status === 'cancelled') return { kind: 'not_applicable' };
+  const threshold = RULES.lateToleranceMin;
+  if (mission.status === 'completed') {
+    const end = missionActualEnd(mission);
+    if (!end) return { kind: 'unknown', reason: 'Heure de fin réelle non disponible' };
+    const minutes = minutesBetween(deadline, end);
+    return minutes > threshold ? { kind: 'late', minutes, since: deadline, basis: 'actual' } : { kind: 'on_time' };
+  }
+  if (mission.status === 'in_progress' || mission.status === 'planned') {
+    const minutes = minutesBetween(deadline, now);
+    return minutes > threshold ? { kind: 'late', minutes, since: deadline, basis: 'elapsed' } : { kind: 'on_time' };
+  }
+  return { kind: 'unknown', reason: 'Statut de tournée inconnu' };
+}
+
 export function missionLateness(mission: Mission, now: Date): Lateness {
   if (mission.status === 'cancelled') return { kind: 'not_applicable' };
-  const results = mission.deliveries.map((d) => deliveryLateness(d, now));
+  const tour = tourOverrun(mission, now);
+  const results = [...mission.deliveries.map((d) => deliveryLateness(d, now)), tour];
   const late = results.filter((r): r is Extract<Lateness, { kind: 'late' }> => r.kind === 'late');
   if (late.length > 0) {
     return late.reduce((worst, r) => (r.minutes > worst.minutes ? r : worst));
   }
   if (results.some((r) => r.kind === 'on_time')) return { kind: 'on_time' };
-  if (results.length === 0) return { kind: 'unknown', reason: 'Aucune livraison rattachée' };
-  return { kind: 'unknown', reason: 'Créneaux ou horodatages manquants' };
+  return { kind: 'unknown', reason: 'Ni heure de fin prévue ni créneau' };
 }
 
 export function isLate(l: Lateness): l is Extract<Lateness, { kind: 'late' }> {

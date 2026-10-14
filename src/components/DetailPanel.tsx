@@ -40,7 +40,8 @@ function DeliveryList({ mission, now }: { mission: Mission; now: Date }) {
 }
 
 function DeliveryItem({ d, now }: { d: Delivery; now: Date }) {
-  const late = latenessMeta(deliveryLateness(d, now));
+  const lateness = deliveryLateness(d, now);
+  const late = lateness.kind === 'unknown' ? null : latenessMeta(lateness);
   return (
     <li className="delivery">
       <div className="delivery__head">
@@ -86,14 +87,15 @@ function DeliveryItem({ d, now }: { d: Delivery; now: Date }) {
 
 function MissionSummary({ mission, vehicle, now }: { mission: Mission; vehicle?: Vehicle; now: Date }) {
   const p = missionProgress(mission);
-  const late = latenessMeta(missionLateness(mission, now));
+  const lateness = missionLateness(mission, now);
+  const late = latenessMeta(lateness);
   const next = nextDelivery(mission);
   return (
     <dl className="fields">
       <Field label="Statut">
         <span className="inline-badges">
           <StatusBadge meta={MISSION_STATUS[mission.status]} />
-          {late && <StatusBadge meta={late} />}
+          {late && lateness.kind !== 'unknown' && <StatusBadge meta={late} />}
         </span>
       </Field>
       <Field label="Véhicule">
@@ -130,9 +132,15 @@ function MissionSummary({ mission, vehicle, now }: { mission: Mission; vehicle?:
           <Missing />
         )}
       </Field>
-      <Field label="Distance prévu / parcouru">
-        <DistanceCell c={compareMissionDistance(mission)} />
-      </Field>
+      {mission.plannedDistanceKm !== undefined ? (
+        <Field label="Distance prévu / parcouru">
+          <DistanceCell c={compareMissionDistance(mission)} />
+        </Field>
+      ) : (
+        mission.actualDistanceKm !== undefined && (
+          <Field label="Distance parcourue">{formatKm(mission.actualDistanceKm)}</Field>
+        )
+      )}
     </dl>
   );
 }

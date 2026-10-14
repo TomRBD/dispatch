@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Delivery, Mission } from './types';
 import {
+  tourOverrun,
   RULES,
   aggregateDistance,
   compareMissionDistance,
@@ -148,5 +149,31 @@ describe('timeline', () => {
     const m = mission({ status: 'in_progress', deliveries: [delivery({ plannedWindowEnd: at(-45) })] });
     const delay = buildMissionTimeline(m, now).find((e) => e.type === 'delay');
     expect(delay?.actualAt).toEqual(at(-45));
+  });
+});
+
+describe('tourOverrun (fin prévue dépassée)', () => {
+  it('flags a running tour past its planned end, since the planned end', () => {
+    const m = mission({ status: 'in_progress', plannedEnd: at(-40) });
+    expect(tourOverrun(m, now)).toEqual({ kind: 'late', minutes: 40, since: at(-40), basis: 'elapsed' });
+    expect(tourOverrun(mission({ status: 'in_progress', plannedEnd: at(-10) }), now).kind).toBe('on_time');
+  });
+
+  it('uses the last completed stop as the real end of a finished tour', () => {
+    const m = mission({
+      status: 'completed',
+      plannedEnd: at(-120),
+      deliveries: [
+        delivery({ id: 'a', status: 'delivered', actualCompletion: at(-150) }),
+        delivery({ id: 'b', status: 'delivered', actualCompletion: at(-90) }),
+      ],
+    });
+    expect(tourOverrun(m, now)).toMatchObject({ kind: 'late', minutes: 30, basis: 'actual' });
+    expect(missionLateness(m, now)).toMatchObject({ kind: 'late', minutes: 30 });
+  });
+
+  it('is not applicable without planned end, unknown without real end', () => {
+    expect(tourOverrun(mission({ status: 'in_progress' }), now).kind).toBe('not_applicable');
+    expect(tourOverrun(mission({ status: 'completed', plannedEnd: at(-60) }), now).kind).toBe('unknown');
   });
 });

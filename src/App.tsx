@@ -220,11 +220,13 @@ export function App() {
           </aside>
         </div>
 
+        {snapshot.missions.some((m) => m.plannedDistanceKm !== undefined) && (
         <DistancePanel
           missions={snapshot.missions}
           vehicles={vehiclesById}
           onSelectMission={(id) => setSelection({ kind: 'mission', id })}
         />
+        )}
       </main>
     </div>
   );
